@@ -1,53 +1,67 @@
 /**
- * UDSL - Generic Evaluator
+ * UDSL - Evaluator with Plugin System
  *
- * Language-agnostic evaluator for UDSL expressions.
- * Can be extended with custom handlers for different runtimes.
+ * Evaluates DSL expressions using registered plugins.
  */
 
 import {
-	type EntityOperation,
-	type MultiEntityDSL,
-	type OpTypeConditional,
-	isOpTypeConditional,
-	isRefBinding,
+	type DSL,
+	type EvalContext,
+	type Operation,
+	type Pipeline,
+	type Plugin,
+	isOperation,
+	isPipeline,
 	isRefInput,
 	isRefNow,
+	isRefResult,
 	isRefTemp,
 } from "./types";
 
 // =============================================================================
-// Evaluation Context
+// Plugin Registry
 // =============================================================================
 
-/** Context for evaluating DSL expressions */
-export interface EvaluationContext {
-	/** Input data (from $input references) */
-	input: Record<string, unknown>;
-	/** Bindings from previous operations (from $ref references) */
-	bindings?: Record<string, unknown>;
-	/** Current timestamp (for $now) */
-	now?: Date;
-	/** Temp ID generator (for $temp) */
-	generateTempId?: () => string;
+const plugins = new Map<string, Plugin>();
+
+/**
+ * Register a plugin
+ *
+ * @example
+ * ```typescript
+ * registerPlugin({
+ *   namespace: "entity",
+ *   effects: {
+ *     create: (args, ctx) => ({ id: ctx.tempId?.() ?? "temp", ...args }),
+ *     update: (args, ctx) => args,
+ *     delete: (args, ctx) => ({ deleted: true }),
+ *   }
+ * });
+ * ```
+ */
+export function registerPlugin(plugin: Plugin): void {
+	plugins.set(plugin.namespace, plugin);
 }
 
-/** Result of evaluating a single operation */
-export interface EvaluatedOperation {
-	/** Operation name/key */
-	name: string;
-	/** Target entity type */
-	entity: string;
-	/** Operation type (create/update/delete/upsert) */
-	op: "create" | "update" | "delete" | "upsert";
-	/** Entity ID (for update/delete) */
-	id?: string;
-	/** Entity IDs (for bulk operations) */
-	ids?: string[];
-	/** Where clause (for bulk operations) */
-	where?: Record<string, unknown>;
-	/** Data to apply */
-	data: Record<string, unknown>;
+/**
+ * Unregister a plugin
+ */
+export function unregisterPlugin(namespace: string): void {
+	plugins.delete(namespace);
+}
+
+/**
+ * Clear all plugins
+ */
+export function clearPlugins(): void {
+	plugins.clear();
+}
+
+/**
+ * Get registered plugin namespaces
+ */
+export function getPluginNamespaces(): string[] {
+	return [...plugins.keys()];
 }
 
 // =============================================================================
@@ -62,102 +76,6 @@ export function resetTempIdCounter(): void {
 }
 
 /**
- * Resolve a value, expanding any DSL references
- */
-export function resolveValue(value: unknown, ctx: EvaluationContext): unknown {
-	// Handle null/undefined
-	if (value === null || value === undefined) {
-		return value;
-	}
-
-	// Handle $input reference
-	if (isRefInput(value)) {
-		return getNestedValue(ctx.input, value.$input);
-	}
-
-	// Handle $ref reference
-	if (isRefBinding(value)) {
-		if (!ctx.bindings) {
-			throw new EvaluationError(`Cannot resolve $ref: no bindings in context`);
-		}
-		return getNestedValue(ctx.bindings, value.$ref);
-	}
-
-	// Handle $now reference
-	if (isRefNow(value)) {
-		return ctx.now ?? new Date();
-	}
-
-	// Handle $temp reference
-	if (isRefTemp(value)) {
-		if (ctx.generateTempId) {
-			return ctx.generateTempId();
-		}
-		return `temp_${++tempIdCounter}`;
-	}
-
-	// Handle operators
-	if (typeof value === "object" && value !== null) {
-		const obj = value as Record<string, unknown>;
-
-		// $increment - return special marker
-		if ("$increment" in obj) {
-			return { $increment: obj.$increment };
-		}
-
-		// $decrement - return special marker
-		if ("$decrement" in obj) {
-			return { $decrement: obj.$decrement };
-		}
-
-		// $push - return special marker with resolved value
-		if ("$push" in obj) {
-			return { $push: resolveValue(obj.$push, ctx) };
-		}
-
-		// $pull - return special marker with resolved value
-		if ("$pull" in obj) {
-			return { $pull: resolveValue(obj.$pull, ctx) };
-		}
-
-		// $addToSet - return special marker with resolved value
-		if ("$addToSet" in obj) {
-			return { $addToSet: resolveValue(obj.$addToSet, ctx) };
-		}
-
-		// $default - use default if resolved value is undefined
-		if ("$default" in obj) {
-			return obj.$default;
-		}
-
-		// $if - conditional
-		if ("$if" in obj) {
-			const cond = obj.$if as { condition: unknown; then: unknown; else?: unknown };
-			const conditionResult = resolveValue(cond.condition, ctx);
-			if (isTruthy(conditionResult)) {
-				return resolveValue(cond.then, ctx);
-			}
-			return cond.else !== undefined ? resolveValue(cond.else, ctx) : undefined;
-		}
-
-		// Handle arrays
-		if (Array.isArray(value)) {
-			return value.map((v) => resolveValue(v, ctx));
-		}
-
-		// Handle plain objects - recursively resolve
-		const result: Record<string, unknown> = {};
-		for (const [k, v] of Object.entries(obj)) {
-			result[k] = resolveValue(v, ctx);
-		}
-		return result;
-	}
-
-	// Primitive value - return as-is
-	return value;
-}
-
-/**
  * Get nested value from object using dot-notation path
  */
 function getNestedValue(obj: unknown, path: string): unknown {
@@ -165,12 +83,8 @@ function getNestedValue(obj: unknown, path: string): unknown {
 	let current: unknown = obj;
 
 	for (const part of parts) {
-		if (current === null || current === undefined) {
-			return undefined;
-		}
-		if (typeof current !== "object") {
-			return undefined;
-		}
+		if (current === null || current === undefined) return undefined;
+		if (typeof current !== "object") return undefined;
 		current = (current as Record<string, unknown>)[part];
 	}
 
@@ -179,12 +93,6 @@ function getNestedValue(obj: unknown, path: string): unknown {
 
 /**
  * Check if value is truthy (DSL semantics)
- * - null/undefined → false
- * - empty array → false
- * - empty string → false
- * - 0 → false
- * - false → false
- * - everything else → true
  */
 function isTruthy(value: unknown): boolean {
 	if (value === null || value === undefined) return false;
@@ -195,89 +103,198 @@ function isTruthy(value: unknown): boolean {
 	return true;
 }
 
-// =============================================================================
-// Operation Evaluation
-// =============================================================================
-
 /**
- * Evaluate a single EntityOperation
+ * Resolve a value, expanding any DSL references
  */
-export function evaluateOperation(
-	name: string,
-	operation: EntityOperation,
-	ctx: EvaluationContext,
-): EvaluatedOperation {
-	// Resolve operation type (may be conditional)
-	let opType: "create" | "update" | "delete" | "upsert";
+export function resolveValue(value: unknown, ctx: EvalContext): unknown {
+	if (value === null || value === undefined) return value;
 
-	if (isOpTypeConditional(operation.$op)) {
-		const cond = operation.$op as OpTypeConditional;
-		const conditionResult = resolveValue(cond.$if.condition, ctx);
-		opType = isTruthy(conditionResult) ? cond.$if.then : cond.$if.else;
-	} else {
-		opType = operation.$op;
+	// $input reference
+	if (isRefInput(value)) {
+		return getNestedValue(ctx.input, value.$input);
 	}
 
-	// Build result
-	const result: EvaluatedOperation = {
-		name,
-		entity: operation.$entity,
-		op: opType,
-		data: {},
-	};
-
-	// Resolve ID
-	if (operation.$id !== undefined) {
-		result.id = resolveValue(operation.$id, ctx) as string;
+	// $ref reference
+	if (isRefResult(value)) {
+		return getNestedValue(ctx.results, value.$ref);
 	}
 
-	// Resolve IDs
-	if (operation.$ids !== undefined) {
-		result.ids = resolveValue(operation.$ids, ctx) as string[];
+	// $now reference
+	if (isRefNow(value)) {
+		return ctx.now ?? new Date();
 	}
 
-	// Resolve where
-	if (operation.$where !== undefined) {
-		result.where = resolveValue(operation.$where, ctx) as Record<string, unknown>;
+	// $temp reference
+	if (isRefTemp(value)) {
+		return ctx.tempId?.() ?? `temp_${++tempIdCounter}`;
 	}
 
-	// Resolve data fields (everything except $ prefixed keys)
-	for (const [key, value] of Object.entries(operation)) {
-		if (key.startsWith("$")) continue;
-		result.data[key] = resolveValue(value, ctx);
+	// Handle operators and objects
+	if (typeof value === "object" && value !== null) {
+		const obj = value as Record<string, unknown>;
+
+		// Operators - preserve as markers
+		if ("$inc" in obj) return { $inc: obj.$inc };
+		if ("$dec" in obj) return { $dec: obj.$dec };
+		if ("$push" in obj) return { $push: resolveValue(obj.$push, ctx) };
+		if ("$pull" in obj) return { $pull: resolveValue(obj.$pull, ctx) };
+		if ("$addToSet" in obj) return { $addToSet: resolveValue(obj.$addToSet, ctx) };
+		if ("$default" in obj) return obj.$default;
+
+		// $if conditional
+		if ("$if" in obj) {
+			const cond = obj.$if as { cond: unknown; then: unknown; else?: unknown };
+			const condResult = resolveValue(cond.cond, ctx);
+			if (isTruthy(condResult)) {
+				return resolveValue(cond.then, ctx);
+			}
+			return cond.else !== undefined ? resolveValue(cond.else, ctx) : undefined;
+		}
+
+		// Arrays
+		if (Array.isArray(value)) {
+			return value.map((v) => resolveValue(v, ctx));
+		}
+
+		// Plain objects - recursively resolve
+		const result: Record<string, unknown> = {};
+		for (const [k, v] of Object.entries(obj)) {
+			result[k] = resolveValue(v, ctx);
+		}
+		return result;
 	}
 
-	return result;
+	return value;
+}
+
+// =============================================================================
+// Operation Execution
+// =============================================================================
+
+/** Result of executing an operation */
+export interface OperationResult {
+	/** Operation name ($as) */
+	name?: string;
+	/** Effect that was executed */
+	effect: string;
+	/** Resolved arguments */
+	args: Record<string, unknown>;
+	/** Result from effect handler */
+	result: unknown;
+	/** Was skipped due to $when */
+	skipped: boolean;
 }
 
 /**
- * Evaluate a MultiEntityDSL, returning evaluated operations in order
+ * Execute a single operation
  */
-export function evaluateMultiEntityDSL(
-	dsl: MultiEntityDSL,
-	ctx: EvaluationContext,
-): EvaluatedOperation[] {
-	const results: EvaluatedOperation[] = [];
-	const bindings: Record<string, unknown> = { ...ctx.bindings };
+export async function executeOperation(
+	operation: Operation,
+	ctx: EvalContext,
+): Promise<OperationResult> {
+	const { $do: effect, $with: args = {}, $as: name, $when: condition } = operation;
 
-	for (const [name, operation] of Object.entries(dsl)) {
-		const evalCtx: EvaluationContext = {
-			...ctx,
-			bindings,
-		};
-
-		const evaluated = evaluateOperation(name, operation, evalCtx);
-		results.push(evaluated);
-
-		// Add result to bindings for subsequent operations
-		// The binding value is the data + id (simulating what the operation would return)
-		bindings[name] = {
-			id: evaluated.id,
-			...evaluated.data,
-		};
+	// Check condition
+	if (condition !== undefined) {
+		const condResult = resolveValue(condition, ctx);
+		if (!isTruthy(condResult)) {
+			return { name, effect, args: {}, result: undefined, skipped: true };
+		}
 	}
 
-	return results;
+	// Resolve arguments
+	const resolvedArgs = resolveValue(args, ctx) as Record<string, unknown>;
+
+	// Find plugin and effect handler
+	const [namespace, effectName] = effect.includes(".")
+		? effect.split(".", 2)
+		: ["core", effect];
+
+	const plugin = plugins.get(namespace!);
+	if (!plugin) {
+		throw new EvaluationError(`Unknown plugin namespace: ${namespace}`);
+	}
+
+	const handler = plugin.effects[effectName!];
+	if (!handler) {
+		throw new EvaluationError(`Unknown effect: ${effect}`);
+	}
+
+	// Execute handler
+	const result = await handler(resolvedArgs, ctx);
+
+	return { name, effect, args: resolvedArgs, result, skipped: false };
+}
+
+// =============================================================================
+// Pipeline Execution
+// =============================================================================
+
+/** Result of executing a pipeline */
+export interface PipelineResult {
+	/** Results from each operation */
+	operations: OperationResult[];
+	/** Final return value */
+	result: Record<string, unknown>;
+}
+
+/**
+ * Execute a pipeline of operations
+ */
+export async function executePipeline(
+	pipeline: Pipeline,
+	input: Record<string, unknown>,
+	options: { now?: Date; tempId?: () => string } = {},
+): Promise<PipelineResult> {
+	const results: Record<string, unknown> = {};
+	const operationResults: OperationResult[] = [];
+
+	// Create context with resolve helper
+	const createCtx = (): EvalContext => ({
+		input,
+		results,
+		now: options.now,
+		tempId: options.tempId,
+		resolve: (v) => resolveValue(v, createCtx()),
+	});
+
+	for (const operation of pipeline.$pipe) {
+		const ctx = createCtx();
+		const opResult = await executeOperation(operation, ctx);
+		operationResults.push(opResult);
+
+		// Store result if named
+		if (opResult.name && !opResult.skipped) {
+			results[opResult.name] = opResult.result;
+		}
+	}
+
+	// Resolve return value
+	const returnValue = pipeline.$return
+		? (resolveValue(pipeline.$return, createCtx()) as Record<string, unknown>)
+		: results;
+
+	return { operations: operationResults, result: returnValue };
+}
+
+/**
+ * Execute a DSL (operation or pipeline)
+ */
+export async function execute(
+	dsl: DSL,
+	input: Record<string, unknown>,
+	options: { now?: Date; tempId?: () => string } = {},
+): Promise<PipelineResult> {
+	if (isPipeline(dsl)) {
+		return executePipeline(dsl, input, options);
+	}
+
+	if (isOperation(dsl)) {
+		// Wrap single operation in pipeline
+		return executePipeline({ $pipe: [dsl] }, input, options);
+	}
+
+	throw new EvaluationError("Invalid DSL: expected Operation or Pipeline");
 }
 
 // =============================================================================

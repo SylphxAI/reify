@@ -1,61 +1,105 @@
 /**
  * UDSL - Universal DSL
  *
- * Language-agnostic, serializable expression language for building data pipelines.
+ * Language-agnostic, serializable expression language.
  */
 
+// =============================================================================
 // Types
+// =============================================================================
+
 export type {
 	// Value references
 	RefInput,
-	RefBinding,
+	RefResult,
 	RefNow,
 	RefTemp,
 	ValueRef,
 	// Operators
-	OpIncrement,
-	OpDecrement,
+	OpInc,
+	OpDec,
 	OpPush,
 	OpPull,
 	OpAddToSet,
 	OpDefault,
 	OpIf,
 	Operator,
-	// Operations
-	OpType,
-	OpTypeConditional,
-	EntityOperation,
-	// Transaction
-	NamedOperation,
-	Transaction,
-	Effect,
-	// Multi-entity DSL
-	MultiEntityDSL,
+	// Core primitives
+	Operation,
+	Pipeline,
+	DSL,
+	// Plugin system
+	EffectHandler,
+	Plugin,
+	EvalContext,
 } from "./types";
 
 // Type guards
 export {
 	isRefInput,
-	isRefBinding,
+	isRefResult,
 	isRefNow,
 	isRefTemp,
 	isValueRef,
 	isOperator,
-	isEntityOperation,
-	isOpTypeConditional,
-	isTransaction,
-	isMultiEntityDSL,
+	isOperation,
+	isPipeline,
+	isDSL,
 } from "./types";
 
+// =============================================================================
 // Builder
-export { op, ref, when, pipeline, createInputProxy } from "./builder";
+// =============================================================================
 
-// Evaluator
-export type { EvaluationContext, EvaluatedOperation } from "./evaluator";
 export {
+	// Pipeline builder
+	pipe,
+	single,
+	// Operation builder
+	op,
+	// Entity helpers (sugar)
+	entity,
+	// Value references
+	ref,
+	now,
+	temp,
+	// Operators
+	inc,
+	dec,
+	push,
+	pull,
+	addToSet,
+	defaultTo,
+	when,
+	// Internal
+	createInputProxy,
+} from "./builder";
+
+// =============================================================================
+// Evaluator
+// =============================================================================
+
+export type { OperationResult, PipelineResult } from "./evaluator";
+export {
+	// Plugin registry
+	registerPlugin,
+	unregisterPlugin,
+	clearPlugins,
+	getPluginNamespaces,
+	// Execution
+	execute,
+	executePipeline,
+	executeOperation,
+	// Value resolution
 	resolveValue,
-	evaluateOperation,
-	evaluateMultiEntityDSL,
 	resetTempIdCounter,
+	// Errors
 	EvaluationError,
 } from "./evaluator";
+
+// =============================================================================
+// Built-in Plugins
+// =============================================================================
+
+export { entityPlugin } from "./plugins/index";
+export type { CreateArgs, UpdateArgs, DeleteArgs, UpsertArgs } from "./plugins/index";

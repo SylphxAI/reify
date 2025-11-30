@@ -14,8 +14,8 @@ export interface RefInput {
 	$input: string;
 }
 
-/** Reference to a named binding: { $ref: "bindingName.field" } */
-export interface RefBinding {
+/** Reference to a named result: { $ref: "resultName.field" } */
+export interface RefResult {
 	$ref: string;
 }
 
@@ -30,33 +30,33 @@ export interface RefTemp {
 }
 
 /** Any value reference */
-export type ValueRef = RefInput | RefBinding | RefNow | RefTemp;
+export type ValueRef = RefInput | RefResult | RefNow | RefTemp;
 
 // =============================================================================
-// Operators - Transform values
+// Operators - Transform values inline
 // =============================================================================
 
-/** Increment number: { $increment: 1 } */
-export interface OpIncrement {
-	$increment: number;
+/** Increment number: { $inc: 1 } */
+export interface OpInc {
+	$inc: number;
 }
 
-/** Decrement number: { $decrement: 1 } */
-export interface OpDecrement {
-	$decrement: number;
+/** Decrement number: { $dec: 1 } */
+export interface OpDec {
+	$dec: number;
 }
 
-/** Push to array: { $push: value } or { $push: [values] } */
+/** Push to array: { $push: value } */
 export interface OpPush {
 	$push: unknown;
 }
 
-/** Pull from array: { $pull: value } or { $pull: [values] } */
+/** Pull from array: { $pull: value } */
 export interface OpPull {
 	$pull: unknown;
 }
 
-/** Add to set (push if not exists): { $addToSet: value } */
+/** Add to set: { $addToSet: value } */
 export interface OpAddToSet {
 	$addToSet: unknown;
 }
@@ -66,89 +66,99 @@ export interface OpDefault {
 	$default: unknown;
 }
 
-/** Conditional value: { $if: { condition, then, else? } } */
+/** Conditional value: { $if: { cond, then, else? } } */
 export interface OpIf {
 	$if: {
-		condition: unknown;
+		cond: unknown;
 		then: unknown;
 		else?: unknown;
 	};
 }
 
 /** Any operator */
-export type Operator = OpIncrement | OpDecrement | OpPush | OpPull | OpAddToSet | OpDefault | OpIf;
+export type Operator = OpInc | OpDec | OpPush | OpPull | OpAddToSet | OpDefault | OpIf;
 
 // =============================================================================
-// Operations - CRUD actions
+// Core Primitives - The Universal DSL
 // =============================================================================
 
-/** Operation type */
-export type OpType = "create" | "update" | "delete" | "upsert";
-
-/** Conditional operation type */
-export interface OpTypeConditional {
-	$if: {
-		condition: unknown;
-		then: OpType;
-		else: OpType;
-	};
+/**
+ * Operation - Single unit of work
+ *
+ * @example
+ * ```json
+ * {
+ *   "$do": "entity.create",
+ *   "$with": { "type": "User", "name": { "$input": "name" } },
+ *   "$as": "user",
+ *   "$when": { "$input": "shouldCreate" }
+ * }
+ * ```
+ */
+export interface Operation {
+	/** Effect to execute (namespaced, e.g., "entity.create", "http.post") */
+	$do: string;
+	/** Arguments for the effect */
+	$with?: Record<string, unknown>;
+	/** Name this result for later $ref */
+	$as?: string;
+	/** Only execute if condition is truthy */
+	$when?: unknown;
 }
 
-/** Entity operation - a single CRUD action */
-export interface EntityOperation {
-	/** Target entity type */
-	$entity: string;
-	/** Operation type */
-	$op: OpType | OpTypeConditional;
-	/** Single ID for update/delete */
-	$id?: string | ValueRef;
-	/** Multiple IDs for bulk operations */
-	$ids?: string[] | ValueRef;
-	/** Where clause for bulk operations */
-	$where?: Record<string, unknown>;
-	/** Data fields (for create/update) */
-	[key: string]: unknown;
-}
-
-// =============================================================================
-// Transaction - Pipeline of operations
-// =============================================================================
-
-/** Named operation in a transaction */
-export interface NamedOperation {
-	/** Binding name for this operation's result */
-	$as: string;
-	/** The operation to execute */
-	$do: EntityOperation;
-}
-
-/** Transaction - ordered list of operations with dependencies */
-export interface Transaction {
-	/** Pipeline of operations */
-	$tx: NamedOperation[];
-	/** What to return from the transaction */
+/**
+ * Pipeline - Sequence of operations
+ *
+ * @example
+ * ```json
+ * {
+ *   "$pipe": [
+ *     { "$do": "entity.create", "$with": {...}, "$as": "user" },
+ *     { "$do": "http.post", "$with": { "body": { "$ref": "user" } } }
+ *   ]
+ * }
+ * ```
+ */
+export interface Pipeline {
+	/** Ordered list of operations */
+	$pipe: Operation[];
+	/** What to return from the pipeline */
 	$return?: Record<string, unknown>;
-	/** Side effects to trigger */
-	$effects?: Effect[];
 }
 
-/** Side effect */
-export interface Effect {
-	/** Invalidate cache keys */
-	$invalidate?: string[];
-	/** Broadcast event */
-	$broadcast?: string;
-	/** Event data */
-	$data?: unknown;
+/** DSL can be a single operation or a pipeline */
+export type DSL = Operation | Pipeline;
+
+// =============================================================================
+// Plugin System
+// =============================================================================
+
+/** Effect handler function */
+export type EffectHandler<TArgs = Record<string, unknown>, TResult = unknown> = (
+	args: TArgs,
+	ctx: EvalContext,
+) => TResult | Promise<TResult>;
+
+/** Plugin definition */
+export interface Plugin {
+	/** Plugin namespace (e.g., "entity", "http", "collect") */
+	namespace: string;
+	/** Effect handlers */
+	effects: Record<string, EffectHandler>;
 }
 
-// =============================================================================
-// Multi-Entity DSL - Simplified format (current Lens format)
-// =============================================================================
-
-/** Multi-entity DSL - named operations map */
-export interface MultiEntityDSL {
-	[operationName: string]: EntityOperation;
+/** Evaluation context passed to effect handlers */
+export interface EvalContext {
+	/** Input data */
+	input: Record<string, unknown>;
+	/** Results from previous operations */
+	results: Record<string, unknown>;
+	/** Current timestamp */
+	now?: Date;
+	/** Temp ID generator */
+	tempId?: () => string;
+	/** Resolve a value (handles $input, $ref, etc.) */
+	resolve: (value: unknown) => unknown;
 }
 
 // =============================================================================
@@ -159,7 +169,7 @@ export function isRefInput(v: unknown): v is RefInput {
 	return typeof v === "object" && v !== null && "$input" in v;
 }
 
-export function isRefBinding(v: unknown): v is RefBinding {
+export function isRefResult(v: unknown): v is RefResult {
 	return typeof v === "object" && v !== null && "$ref" in v;
 }
 
@@ -172,14 +182,14 @@ export function isRefTemp(v: unknown): v is RefTemp {
 }
 
 export function isValueRef(v: unknown): v is ValueRef {
-	return isRefInput(v) || isRefBinding(v) || isRefNow(v) || isRefTemp(v);
+	return isRefInput(v) || isRefResult(v) || isRefNow(v) || isRefTemp(v);
 }
 
 export function isOperator(v: unknown): v is Operator {
 	if (typeof v !== "object" || v === null) return false;
 	return (
-		"$increment" in v ||
-		"$decrement" in v ||
+		"$inc" in v ||
+		"$dec" in v ||
 		"$push" in v ||
 		"$pull" in v ||
 		"$addToSet" in v ||
@@ -188,20 +198,14 @@ export function isOperator(v: unknown): v is Operator {
 	);
 }
 
-export function isEntityOperation(v: unknown): v is EntityOperation {
-	return typeof v === "object" && v !== null && "$entity" in v && "$op" in v;
+export function isOperation(v: unknown): v is Operation {
+	return typeof v === "object" && v !== null && "$do" in v;
 }
 
-export function isOpTypeConditional(v: unknown): v is OpTypeConditional {
-	return typeof v === "object" && v !== null && "$if" in v;
+export function isPipeline(v: unknown): v is Pipeline {
+	return typeof v === "object" && v !== null && "$pipe" in v && Array.isArray((v as Pipeline).$pipe);
 }
 
-export function isTransaction(v: unknown): v is Transaction {
-	return typeof v === "object" && v !== null && "$tx" in v && Array.isArray((v as Transaction).$tx);
-}
-
-export function isMultiEntityDSL(v: unknown): v is MultiEntityDSL {
-	if (typeof v !== "object" || v === null) return false;
-	// Must have at least one EntityOperation
-	return Object.values(v).some(isEntityOperation);
+export function isDSL(v: unknown): v is DSL {
+	return isOperation(v) || isPipeline(v);
 }

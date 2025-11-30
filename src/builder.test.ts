@@ -1,342 +1,245 @@
 import { describe, expect, it } from "bun:test";
-import { op, pipeline, ref, when } from "./builder";
+import { addToSet, dec, defaultTo, entity, inc, now, op, pipe, pull, push, ref, single, temp, when } from "./builder";
 
 describe("UDSL Builder", () => {
-	describe("pipeline", () => {
-		it("compiles simple create operation", () => {
-			const dsl = pipeline(({ input }) => [
-				op
-					.create("Session", {
-						title: input.title,
-					})
-					.as("session"),
+	describe("pipe", () => {
+		it("builds simple pipeline", () => {
+			const dsl = pipe(({ input }) => [
+				entity.create("Session", { title: input.title }).as("session"),
 			]);
 
 			expect(dsl).toEqual({
-				session: {
-					$entity: "Session",
-					$op: "create",
-					title: { $input: "title" },
-				},
+				$pipe: [
+					{
+						$do: "entity.create",
+						$with: { type: "Session", title: { $input: "title" } },
+						$as: "session",
+					},
+				],
 			});
 		});
 
-		it("compiles update operation with id", () => {
-			const dsl = pipeline(({ input }) => [
-				op
-					.update("Session", {
-						id: input.sessionId,
-						title: input.title,
-					})
-					.as("session"),
+		it("builds pipeline with multiple operations", () => {
+			const dsl = pipe(({ input }) => [
+				entity.create("Session", { title: input.title }).as("session"),
+				entity.create("Message", { sessionId: ref("session").id, content: input.content }).as("message"),
 			]);
 
-			expect(dsl).toEqual({
-				session: {
-					$entity: "Session",
-					$op: "update",
-					$id: { $input: "sessionId" },
-					title: { $input: "title" },
-				},
+			expect(dsl.$pipe).toHaveLength(2);
+			expect(dsl.$pipe[0]).toEqual({
+				$do: "entity.create",
+				$with: { type: "Session", title: { $input: "title" } },
+				$as: "session",
 			});
-		});
-
-		it("compiles delete operation", () => {
-			const dsl = pipeline(({ input }) => [op.delete("Post", input.postId).as("deleted")]);
-
-			expect(dsl).toEqual({
-				deleted: {
-					$entity: "Post",
-					$op: "delete",
-					$id: { $input: "postId" },
-				},
-			});
-		});
-
-		it("compiles upsert operation", () => {
-			const dsl = pipeline(({ input }) => [
-				op
-					.upsert("Session", {
-						id: input.sessionId,
-						title: input.title,
-					})
-					.as("session"),
-			]);
-
-			expect(dsl).toEqual({
-				session: {
-					$entity: "Session",
-					$op: "upsert",
-					$id: { $input: "sessionId" },
-					title: { $input: "title" },
-				},
-			});
-		});
-
-		it("compiles multiple operations with ref.from()", () => {
-			const dsl = pipeline(({ input }) => [
-				op
-					.create("Session", {
-						title: input.title,
-					})
-					.as("session"),
-				op
-					.create("Message", {
-						sessionId: ref.from("session").id,
-						content: input.content,
-					})
-					.as("message"),
-			]);
-
-			expect(dsl).toEqual({
-				session: {
-					$entity: "Session",
-					$op: "create",
-					title: { $input: "title" },
-				},
-				message: {
-					$entity: "Message",
-					$op: "create",
+			expect(dsl.$pipe[1]).toEqual({
+				$do: "entity.create",
+				$with: {
+					type: "Message",
 					sessionId: { $ref: "session.id" },
 					content: { $input: "content" },
 				},
+				$as: "message",
 			});
 		});
 
-		it("handles operations without .as() name", () => {
-			const dsl = pipeline(({ input }) => [
-				op.create("Session", { title: input.title }),
-				op.create("Log", { action: "created" }),
+		it("supports conditional execution with .only()", () => {
+			const dsl = pipe(({ input }) => [
+				entity.create("Session", { title: input.title }).as("session").only(input.shouldCreate),
 			]);
 
-			expect(dsl._op_0).toEqual({
-				$entity: "Session",
-				$op: "create",
-				title: { $input: "title" },
-			});
-			expect(dsl._op_1).toEqual({
-				$entity: "Log",
-				$op: "create",
-				action: "created",
+			expect(dsl.$pipe[0]).toEqual({
+				$do: "entity.create",
+				$with: { type: "Session", title: { $input: "title" } },
+				$as: "session",
+				$when: { $input: "shouldCreate" },
 			});
 		});
 	});
 
-	describe("input proxy", () => {
-		it("converts simple field access", () => {
-			const dsl = pipeline(({ input }) => [
-				op
-					.create("User", {
-						name: input.name,
-						email: input.email,
-					})
-					.as("user"),
+	describe("single", () => {
+		it("builds single operation", () => {
+			const dsl = single(({ input }) =>
+				entity.create("User", { name: input.name }).as("user")
+			);
+
+			expect(dsl).toEqual({
+				$do: "entity.create",
+				$with: { type: "User", name: { $input: "name" } },
+				$as: "user",
+			});
+		});
+	});
+
+	describe("op", () => {
+		it("creates generic operation", () => {
+			const dsl = pipe(({ input }) => [
+				op("http.post", { url: "/api/users", body: input.data }).as("response"),
 			]);
 
-			expect(dsl.user).toEqual({
-				$entity: "User",
-				$op: "create",
+			expect(dsl.$pipe[0]).toEqual({
+				$do: "http.post",
+				$with: { url: "/api/users", body: { $input: "data" } },
+				$as: "response",
+			});
+		});
+	});
+
+	describe("entity helpers", () => {
+		it("entity.create", () => {
+			const dsl = pipe(({ input }) => [
+				entity.create("User", { name: input.name }).as("user"),
+			]);
+
+			expect(dsl.$pipe[0]?.$do).toBe("entity.create");
+			expect(dsl.$pipe[0]?.$with).toEqual({ type: "User", name: { $input: "name" } });
+		});
+
+		it("entity.update", () => {
+			const dsl = pipe(({ input }) => [
+				entity.update("User", { id: input.userId, name: input.name }).as("user"),
+			]);
+
+			expect(dsl.$pipe[0]?.$do).toBe("entity.update");
+			expect(dsl.$pipe[0]?.$with).toEqual({
+				type: "User",
+				id: { $input: "userId" },
 				name: { $input: "name" },
-				email: { $input: "email" },
 			});
 		});
 
-		it("converts nested field access", () => {
-			const dsl = pipeline<{ user: { name: string; address: { city: string } } }>(({ input }) => [
-				op
-					.create("User", {
-						name: input.user.name,
-						city: input.user.address.city,
-					})
-					.as("user"),
+		it("entity.delete", () => {
+			const dsl = pipe(({ input }) => [
+				entity.delete("User", input.userId).as("deleted"),
 			]);
 
-			expect(dsl.user).toEqual({
-				$entity: "User",
-				$op: "create",
-				name: { $input: "user.name" },
-				city: { $input: "user.address.city" },
-			});
+			expect(dsl.$pipe[0]?.$do).toBe("entity.delete");
+			expect(dsl.$pipe[0]?.$with).toEqual({ type: "User", id: { $input: "userId" } });
+		});
+
+		it("entity.upsert", () => {
+			const dsl = pipe(({ input }) => [
+				entity.upsert("User", { id: input.userId, name: input.name }).as("user"),
+			]);
+
+			expect(dsl.$pipe[0]?.$do).toBe("entity.upsert");
 		});
 	});
 
-	describe("ref.from()", () => {
-		it("converts sibling field access", () => {
-			const dsl = pipeline(() => [
-				op.create("Session", {}).as("session"),
-				op
-					.create("Message", {
-						sessionId: ref.from("session").id,
-					})
-					.as("message"),
+	describe("value references", () => {
+		it("ref() creates result reference", () => {
+			const dsl = pipe(() => [
+				entity.create("Session", {}).as("session"),
+				entity.create("Message", { sessionId: ref("session").id }).as("message"),
 			]);
 
-			expect(dsl.message.sessionId).toEqual({ $ref: "session.id" });
+			expect(dsl.$pipe[1]?.$with?.sessionId).toEqual({ $ref: "session.id" });
 		});
 
-		it("converts nested sibling access", () => {
-			const dsl = pipeline(() => [
-				op.create("User", {}).as("user"),
-				op
-					.create("Profile", {
-						userId: ref.from("user").id,
-						location: ref.from("user").settings.defaultLocation,
-					})
-					.as("profile"),
+		it("ref() supports nested paths", () => {
+			const dsl = pipe(() => [
+				entity.create("User", {}).as("user"),
+				entity.create("Profile", { location: ref("user").settings.location }).as("profile"),
 			]);
 
-			expect(dsl.profile.location).toEqual({ $ref: "user.settings.defaultLocation" });
+			expect(dsl.$pipe[1]?.$with?.location).toEqual({ $ref: "user.settings.location" });
+		});
+
+		it("now() creates timestamp reference", () => {
+			const dsl = pipe(() => [
+				entity.create("Session", { createdAt: now() }).as("session"),
+			]);
+
+			expect(dsl.$pipe[0]?.$with?.createdAt).toEqual({ $now: true });
+		});
+
+		it("temp() creates temp ID reference", () => {
+			const dsl = pipe(() => [
+				entity.create("Session", { id: temp() }).as("session"),
+			]);
+
+			expect(dsl.$pipe[0]?.$with?.id).toEqual({ $temp: true });
 		});
 	});
 
-	describe("ref.* helpers", () => {
-		it("ref.temp() generates temp id reference", () => {
-			const dsl = pipeline(() => [
-				op
-					.create("Session", {
-						id: ref.temp(),
-					})
-					.as("session"),
+	describe("operators", () => {
+		it("inc() creates increment operator", () => {
+			const dsl = pipe(({ input }) => [
+				entity.update("User", { id: input.userId, count: inc(1) }).as("user"),
 			]);
 
-			expect(dsl.session.id).toEqual({ $temp: true });
+			expect(dsl.$pipe[0]?.$with?.count).toEqual({ $inc: 1 });
 		});
 
-		it("ref.now() generates timestamp reference", () => {
-			const dsl = pipeline(() => [
-				op
-					.create("Session", {
-						createdAt: ref.now(),
-					})
-					.as("session"),
+		it("dec() creates decrement operator", () => {
+			const dsl = pipe(({ input }) => [
+				entity.update("User", { id: input.userId, count: dec(5) }).as("user"),
 			]);
 
-			expect(dsl.session.createdAt).toEqual({ $now: true });
+			expect(dsl.$pipe[0]?.$with?.count).toEqual({ $dec: 5 });
 		});
 
-		it("ref.increment() generates increment operator", () => {
-			const dsl = pipeline(({ input }) => [
-				op
-					.update("User", {
-						id: input.userId,
-						postCount: ref.increment(1),
-					})
-					.as("user"),
+		it("push() creates push operator", () => {
+			const dsl = pipe(({ input }) => [
+				entity.update("Post", { id: input.postId, tags: push("featured") }).as("post"),
 			]);
 
-			expect(dsl.user.postCount).toEqual({ $increment: 1 });
+			expect(dsl.$pipe[0]?.$with?.tags).toEqual({ $push: "featured" });
 		});
 
-		it("ref.decrement() generates decrement operator", () => {
-			const dsl = pipeline(({ input }) => [
-				op
-					.update("User", {
-						id: input.userId,
-						credits: ref.decrement(10),
-					})
-					.as("user"),
+		it("push() with multiple items", () => {
+			const dsl = pipe(({ input }) => [
+				entity.update("Post", { id: input.postId, tags: push("a", "b", "c") }).as("post"),
 			]);
 
-			expect(dsl.user.credits).toEqual({ $decrement: 10 });
+			expect(dsl.$pipe[0]?.$with?.tags).toEqual({ $push: ["a", "b", "c"] });
 		});
 
-		it("ref.push() generates push operator", () => {
-			const dsl = pipeline(({ input }) => [
-				op
-					.update("Post", {
-						id: input.postId,
-						tags: ref.push("featured"),
-					})
-					.as("post"),
+		it("pull() creates pull operator", () => {
+			const dsl = pipe(({ input }) => [
+				entity.update("Post", { id: input.postId, tags: pull("draft") }).as("post"),
 			]);
 
-			expect(dsl.post.tags).toEqual({ $push: "featured" });
+			expect(dsl.$pipe[0]?.$with?.tags).toEqual({ $pull: "draft" });
 		});
 
-		it("ref.push() with multiple items", () => {
-			const dsl = pipeline(({ input }) => [
-				op
-					.update("Post", {
-						id: input.postId,
-						tags: ref.push("a", "b", "c"),
-					})
-					.as("post"),
+		it("addToSet() creates addToSet operator", () => {
+			const dsl = pipe(({ input }) => [
+				entity.update("User", { id: input.userId, roles: addToSet("admin") }).as("user"),
 			]);
 
-			expect(dsl.post.tags).toEqual({ $push: ["a", "b", "c"] });
+			expect(dsl.$pipe[0]?.$with?.roles).toEqual({ $addToSet: "admin" });
 		});
 
-		it("ref.pull() generates pull operator", () => {
-			const dsl = pipeline(({ input }) => [
-				op
-					.update("Post", {
-						id: input.postId,
-						tags: ref.pull("draft"),
-					})
-					.as("post"),
+		it("defaultTo() creates default operator", () => {
+			const dsl = pipe(({ input }) => [
+				entity.update("User", { id: input.userId, bio: defaultTo("No bio") }).as("user"),
 			]);
 
-			expect(dsl.post.tags).toEqual({ $pull: "draft" });
+			expect(dsl.$pipe[0]?.$with?.bio).toEqual({ $default: "No bio" });
 		});
 
-		it("ref.addToSet() generates addToSet operator", () => {
-			const dsl = pipeline(({ input }) => [
-				op
-					.update("User", {
-						id: input.userId,
-						roles: ref.addToSet("admin"),
-					})
-					.as("user"),
+		it("when() creates conditional operator", () => {
+			const dsl = pipe(({ input }) => [
+				entity.update("User", { id: input.userId, role: when(input.isAdmin, "admin", "user") }).as("user"),
 			]);
 
-			expect(dsl.user.roles).toEqual({ $addToSet: "admin" });
-		});
-
-		it("ref.default() generates default operator", () => {
-			const dsl = pipeline(({ input }) => [
-				op
-					.update("User", {
-						id: input.userId,
-						bio: ref.default("No bio provided"),
-					})
-					.as("user"),
-			]);
-
-			expect(dsl.user.bio).toEqual({ $default: "No bio provided" });
-		});
-
-		it("ref.if() generates conditional operator", () => {
-			const dsl = pipeline(({ input }) => [
-				op
-					.update("User", {
-						id: input.userId,
-						role: ref.if(input.isAdmin, "admin", "user"),
-					})
-					.as("user"),
-			]);
-
-			expect(dsl.user.role).toEqual({
+			expect(dsl.$pipe[0]?.$with?.role).toEqual({
 				$if: {
-					condition: { $input: "isAdmin" },
+					cond: { $input: "isAdmin" },
 					then: "admin",
 					else: "user",
 				},
 			});
 		});
 
-		it("ref.if() without else", () => {
-			const dsl = pipeline(({ input }) => [
-				op
-					.update("User", {
-						id: input.userId,
-						verified: ref.if(input.hasEmail, true),
-					})
-					.as("user"),
+		it("when() without else", () => {
+			const dsl = pipe(({ input }) => [
+				entity.update("User", { id: input.userId, verified: when(input.hasEmail, true) }).as("user"),
 			]);
 
-			expect(dsl.user.verified).toEqual({
+			expect(dsl.$pipe[0]?.$with?.verified).toEqual({
 				$if: {
-					condition: { $input: "hasEmail" },
+					cond: { $input: "hasEmail" },
 					then: true,
 					else: undefined,
 				},
@@ -344,215 +247,64 @@ describe("UDSL Builder", () => {
 		});
 	});
 
-	describe("when().then().else()", () => {
-		it("compiles conditional operation with matching names", () => {
-			const dsl = pipeline(({ input }) => [
-				when(input.sessionId)
-					.then([
-						op
-							.update("Session", {
-								id: input.sessionId,
-								title: input.title,
-							})
-							.as("session"),
-					])
-					.else([
-						op
-							.create("Session", {
-								title: input.title,
-							})
-							.as("session"),
-					]),
+	describe("input proxy", () => {
+		it("converts simple field access", () => {
+			const dsl = pipe(({ input }) => [
+				entity.create("User", { name: input.name, email: input.email }).as("user"),
 			]);
 
-			expect(dsl).toEqual({
-				session: {
-					$entity: "Session",
-					$op: {
-						$if: {
-							condition: { $input: "sessionId" },
-							then: "update",
-							else: "create",
-						},
-					},
-					$id: { $input: "sessionId" },
-					title: { $input: "title" },
-				},
+			expect(dsl.$pipe[0]?.$with).toEqual({
+				type: "User",
+				name: { $input: "name" },
+				email: { $input: "email" },
 			});
 		});
 
-		it("supports multiple operations in branches", () => {
-			const dsl = pipeline(({ input }) => [
-				when(input.sessionId)
-					.then([
-						op.update("Session", { id: input.sessionId }).as("session"),
-						op.create("Log", { action: "updated" }).as("log"),
-					])
-					.else([
-						op.create("Session", { title: input.title }).as("session"),
-						op.create("Log", { action: "created" }).as("log"),
-					]),
+		it("converts nested field access", () => {
+			const dsl = pipe<{ user: { profile: { name: string } } }>(({ input }) => [
+				entity.create("User", { name: input.user.profile.name }).as("user"),
 			]);
 
-			expect(dsl.session.$op).toEqual({
-				$if: {
-					condition: { $input: "sessionId" },
-					then: "update",
-					else: "create",
-				},
-			});
-			expect(dsl.log.$op).toEqual({
-				$if: {
-					condition: { $input: "sessionId" },
-					then: "create",
-					else: "create",
-				},
-			});
+			expect(dsl.$pipe[0]?.$with?.name).toEqual({ $input: "user.profile.name" });
 		});
 	});
 
-	describe("op.updateMany()", () => {
-		it("compiles bulk update with where", () => {
-			const dsl = pipeline(({ input }) => [
-				op
-					.updateMany("Post", {
-						where: { authorId: input.userId, status: "draft" },
-						data: { archived: true },
-					})
-					.as("posts"),
+	describe("serialization", () => {
+		it("output is pure JSON", () => {
+			const dsl = pipe(({ input }) => [
+				entity.create("User", { name: input.name, createdAt: now() }).as("user"),
 			]);
 
-			expect(dsl).toEqual({
-				posts: {
-					$entity: "Post",
-					$op: "update",
-					$where: { authorId: { $input: "userId" }, status: "draft" },
-					archived: true,
-				},
-			});
-		});
-
-		it("compiles bulk update with ids", () => {
-			const dsl = pipeline(({ input }) => [
-				op
-					.updateMany("Post", {
-						ids: input.postIds,
-						data: { published: true },
-					})
-					.as("posts"),
-			]);
-
-			expect(dsl).toEqual({
-				posts: {
-					$entity: "Post",
-					$op: "update",
-					$ids: { $input: "postIds" },
-					published: true,
-				},
-			});
-		});
-	});
-
-	describe("complex scenarios", () => {
-		it("compiles chat session creation pattern", () => {
-			const dsl = pipeline(({ input }) => [
-				// Upsert session
-				when(input.sessionId)
-					.then([
-						op
-							.update("Session", {
-								id: input.sessionId,
-								updatedAt: ref.now(),
-							})
-							.as("session"),
-					])
-					.else([
-						op
-							.create("Session", {
-								title: input.title,
-								createdAt: ref.now(),
-							})
-							.as("session"),
-					]),
-
-				// Create user message
-				op
-					.create("Message", {
-						sessionId: ref.from("session").id,
-						role: "user",
-						content: input.content,
-					})
-					.as("userMessage"),
-
-				// Create pending assistant message
-				op
-					.create("Message", {
-						sessionId: ref.from("session").id,
-						role: "assistant",
-						status: "pending",
-					})
-					.as("assistantMessage"),
-
-				// Update user stats
-				op
-					.update("User", {
-						id: input.userId,
-						messageCount: ref.increment(1),
-						lastActiveAt: ref.now(),
-					})
-					.as("userStats"),
-			]);
-
-			expect(dsl.session.$op).toEqual({
-				$if: {
-					condition: { $input: "sessionId" },
-					then: "update",
-					else: "create",
-				},
-			});
-			expect(dsl.userMessage.sessionId).toEqual({ $ref: "session.id" });
-			expect(dsl.assistantMessage.sessionId).toEqual({ $ref: "session.id" });
-			expect(dsl.userStats.messageCount).toEqual({ $increment: 1 });
-		});
-
-		it("preserves literal values", () => {
-			const dsl = pipeline(({ input }) => [
-				op
-					.create("Message", {
-						role: "user", // literal string
-						priority: 1, // literal number
-						draft: false, // literal boolean
-						content: input.content, // input ref
-					})
-					.as("message"),
-			]);
-
-			expect(dsl.message).toEqual({
-				$entity: "Message",
-				$op: "create",
-				role: "user",
-				priority: 1,
-				draft: false,
-				content: { $input: "content" },
-			});
-		});
-
-		it("output is pure JSON (serializable)", () => {
-			const dsl = pipeline(({ input }) => [
-				op.create("User", { name: input.name, createdAt: ref.now() }).as("user"),
-			]);
-
-			// Should be able to serialize and deserialize
 			const json = JSON.stringify(dsl);
 			const parsed = JSON.parse(json);
 
 			expect(parsed).toEqual({
-				user: {
-					$entity: "User",
-					$op: "create",
-					name: { $input: "name" },
-					createdAt: { $now: true },
-				},
+				$pipe: [
+					{
+						$do: "entity.create",
+						$with: { type: "User", name: { $input: "name" }, createdAt: { $now: true } },
+						$as: "user",
+					},
+				],
+			});
+		});
+
+		it("preserves literal values", () => {
+			const dsl = pipe(({ input }) => [
+				entity.create("Message", {
+					role: "user",
+					priority: 1,
+					draft: false,
+					content: input.content,
+				}).as("message"),
+			]);
+
+			expect(dsl.$pipe[0]?.$with).toEqual({
+				type: "Message",
+				role: "user",
+				priority: 1,
+				draft: false,
+				content: { $input: "content" },
 			});
 		});
 	});

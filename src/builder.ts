@@ -2,13 +2,12 @@
  * UDSL - TypeScript Builder
  *
  * Type-safe builder that compiles to pure JSON DSL at define-time.
- * No runtime proxy magic in the output - just plain JSON.
  */
 
-import type { EntityOperation, MultiEntityDSL, OpType, RefNow, RefTemp } from "./types";
+import type { Operation, Pipeline, RefNow, RefTemp } from "./types";
 
 // =============================================================================
-// Symbol for identifying DSL values
+// Symbol for identifying DSL values (used during build, not in output)
 // =============================================================================
 
 const DSL_MARKER: unique symbol = Symbol("udsl");
@@ -26,11 +25,6 @@ function isDslValue(value: unknown): value is DslValue {
 // Input Proxy - input.field → { $input: 'field' }
 // =============================================================================
 
-/**
- * Create a proxy that converts property access to $input references
- * input.field → { $input: 'field' }
- * input.user.name → { $input: 'user.name' }
- */
 function createInputProxy<T extends object>(basePath = ""): T {
 	const handler: ProxyHandler<T> = {
 		get(_, prop) {
@@ -56,15 +50,15 @@ function createInputProxy<T extends object>(basePath = ""): T {
 }
 
 // =============================================================================
-// Ref Proxy - ref.from('session').id → { $ref: 'session.id' }
+// Ref Proxy - ref("session").id → { $ref: 'session.id' }
 // =============================================================================
 
-interface RefFrom {
-	[key: string]: RefFrom;
+interface RefProxy {
+	[key: string]: RefProxy;
 }
 
-function createRefFromProxy(basePath: string): RefFrom {
-	const handler: ProxyHandler<RefFrom> = {
+function createRefProxy(basePath: string): RefProxy {
+	const handler: ProxyHandler<RefProxy> = {
 		get(_, prop) {
 			if (prop === DSL_MARKER) return true;
 			if (prop === "toJSON") {
@@ -72,7 +66,7 @@ function createRefFromProxy(basePath: string): RefFrom {
 			}
 			if (prop === "$ref") return basePath;
 			const path = `${basePath}.${String(prop)}`;
-			return createRefFromProxy(path);
+			return createRefProxy(path);
 		},
 	};
 	return new Proxy(
@@ -82,362 +76,274 @@ function createRefFromProxy(basePath: string): RefFrom {
 			toJSON() {
 				return { $ref: basePath };
 			},
-		} as unknown as RefFrom,
+		} as unknown as RefProxy,
 		handler,
 	);
 }
 
 // =============================================================================
-// Ref Namespace - All special values
+// Special Values
 // =============================================================================
 
-/** Operator types for builder */
 interface OperatorValue extends DslValue {
 	[key: string]: unknown;
 }
 
 /**
- * Reference helpers for special values in DSL
+ * Reference a named result
+ * ref("user").id → { $ref: "user.id" }
  */
-export const ref = {
-	/**
-	 * Reference another operation's result
-	 * ref.from('session').id → { $ref: 'session.id' }
-	 */
-	from(operationName: string): RefFrom {
-		return createRefFromProxy(operationName);
-	},
-
-	/**
-	 * Current timestamp
-	 * ref.now() → { $now: true }
-	 */
-	now(): RefNow & DslValue {
-		return {
-			[DSL_MARKER]: true,
-			$now: true,
-			toJSON() {
-				return { $now: true };
-			},
-		};
-	},
-
-	/**
-	 * Generate temporary ID
-	 * ref.temp() → { $temp: true }
-	 */
-	temp(): RefTemp & DslValue {
-		return {
-			[DSL_MARKER]: true,
-			$temp: true,
-			toJSON() {
-				return { $temp: true };
-			},
-		};
-	},
-
-	/**
-	 * Increment numeric field
-	 * ref.increment(1) → { $increment: 1 }
-	 */
-	increment(n: number): OperatorValue {
-		return {
-			[DSL_MARKER]: true,
-			$increment: n,
-			toJSON() {
-				return { $increment: n };
-			},
-		};
-	},
-
-	/**
-	 * Decrement numeric field
-	 * ref.decrement(1) → { $decrement: 1 }
-	 */
-	decrement(n: number): OperatorValue {
-		return {
-			[DSL_MARKER]: true,
-			$decrement: n,
-			toJSON() {
-				return { $decrement: n };
-			},
-		};
-	},
-
-	/**
-	 * Push items to array
-	 * ref.push('item') → { $push: 'item' }
-	 */
-	push(...items: unknown[]): OperatorValue {
-		const value = items.length === 1 ? items[0] : items;
-		return {
-			[DSL_MARKER]: true,
-			$push: value,
-			toJSON() {
-				return { $push: value };
-			},
-		};
-	},
-
-	/**
-	 * Pull items from array
-	 * ref.pull('item') → { $pull: 'item' }
-	 */
-	pull(...items: unknown[]): OperatorValue {
-		const value = items.length === 1 ? items[0] : items;
-		return {
-			[DSL_MARKER]: true,
-			$pull: value,
-			toJSON() {
-				return { $pull: value };
-			},
-		};
-	},
-
-	/**
-	 * Add to set (push if not exists)
-	 * ref.addToSet('item') → { $addToSet: 'item' }
-	 */
-	addToSet(...items: unknown[]): OperatorValue {
-		const value = items.length === 1 ? items[0] : items;
-		return {
-			[DSL_MARKER]: true,
-			$addToSet: value,
-			toJSON() {
-				return { $addToSet: value };
-			},
-		};
-	},
-
-	/**
-	 * Default value if undefined
-	 * ref.default('fallback') → { $default: 'fallback' }
-	 */
-	default(value: unknown): OperatorValue {
-		return {
-			[DSL_MARKER]: true,
-			$default: value,
-			toJSON() {
-				return { $default: value };
-			},
-		};
-	},
-
-	/**
-	 * Conditional value
-	 * ref.if(condition, 'yes', 'no') → { $if: { condition, then, else } }
-	 */
-	if(condition: unknown, thenValue: unknown, elseValue?: unknown): OperatorValue {
-		return {
-			[DSL_MARKER]: true,
-			$if: {
-				condition: serializeValue(condition),
-				then: serializeValue(thenValue),
-				else: elseValue !== undefined ? serializeValue(elseValue) : undefined,
-			},
-			toJSON() {
-				return {
-					$if: {
-						condition: serializeValue(condition),
-						then: serializeValue(thenValue),
-						else: elseValue !== undefined ? serializeValue(elseValue) : undefined,
-					},
-				};
-			},
-		};
-	},
-};
-
-// =============================================================================
-// Operation Builders with .as() chaining
-// =============================================================================
-
-/** Internal operation representation */
-interface BuiltOperation {
-	_type: "operation";
-	_name?: string;
-	_entity: string;
-	_op: OpType;
-	_id?: unknown;
-	_ids?: unknown;
-	_where?: Record<string, unknown>;
-	_data: Record<string, unknown>;
+export function ref(name: string): RefProxy {
+	return createRefProxy(name);
 }
 
-/** Operation with .as() method */
-interface OperationWithAs extends BuiltOperation {
-	as(name: string): BuiltOperation;
-}
-
-function createOperationWithAs(operation: BuiltOperation): OperationWithAs {
+/**
+ * Current timestamp
+ * now() → { $now: true }
+ */
+export function now(): RefNow & DslValue {
 	return {
-		...operation,
-		as(name: string): BuiltOperation {
-			return { ...operation, _name: name };
+		[DSL_MARKER]: true,
+		$now: true,
+		toJSON() {
+			return { $now: true };
 		},
 	};
 }
 
 /**
- * Operation builders
+ * Generate temporary ID
+ * temp() → { $temp: true }
  */
-export const op = {
-	/**
-	 * Create a new entity
-	 * op.create('Session', { title: input.title }).as('session')
-	 */
-	create<E extends string>(entity: E, data: Record<string, unknown>): OperationWithAs {
-		return createOperationWithAs({
-			_type: "operation",
-			_entity: entity,
-			_op: "create",
-			_data: data,
-		});
-	},
-
-	/**
-	 * Update an existing entity
-	 * op.update('Session', { id: input.id, title: 'new' }).as('session')
-	 */
-	update<E extends string>(entity: E, data: Record<string, unknown>): OperationWithAs {
-		const { id, ...rest } = data;
-		return createOperationWithAs({
-			_type: "operation",
-			_entity: entity,
-			_op: "update",
-			_id: id,
-			_data: rest,
-		});
-	},
-
-	/**
-	 * Delete an entity
-	 * op.delete('Post', input.postId).as('deleted')
-	 */
-	delete<E extends string>(entity: E, id: unknown): OperationWithAs {
-		return createOperationWithAs({
-			_type: "operation",
-			_entity: entity,
-			_op: "delete",
-			_id: id,
-			_data: {},
-		});
-	},
-
-	/**
-	 * Upsert an entity (create or update)
-	 * op.upsert('Session', { id: input.id, title: input.title }).as('session')
-	 */
-	upsert<E extends string>(entity: E, data: Record<string, unknown>): OperationWithAs {
-		const { id, ...rest } = data;
-		return createOperationWithAs({
-			_type: "operation",
-			_entity: entity,
-			_op: "upsert",
-			_id: id,
-			_data: rest,
-		});
-	},
-
-	/**
-	 * Bulk update entities
-	 * op.updateMany('Post', { where: { status: 'draft' }, data: { archived: true } })
-	 */
-	updateMany<E extends string>(
-		entity: E,
-		opts: { where?: Record<string, unknown>; ids?: unknown; data: Record<string, unknown> },
-	): OperationWithAs {
-		return createOperationWithAs({
-			_type: "operation",
-			_entity: entity,
-			_op: "update",
-			_ids: opts.ids,
-			_where: opts.where,
-			_data: opts.data,
-		});
-	},
-};
-
-// =============================================================================
-// Conditional Flow - when().then().else()
-// =============================================================================
-
-/** Conditional operation */
-interface ConditionalOperation {
-	_type: "conditional";
-	_condition: unknown;
-	_then: BuiltOperation[];
-	_else?: BuiltOperation[];
-}
-
-type PipelineOperation = BuiltOperation | OperationWithAs | ConditionalOperation;
-
-interface WhenBuilder {
-	then(operations: (BuiltOperation | OperationWithAs)[]): ThenBuilder;
-}
-
-interface ThenBuilder extends ConditionalOperation {
-	else(operations: (BuiltOperation | OperationWithAs)[]): ConditionalOperation;
+export function temp(): RefTemp & DslValue {
+	return {
+		[DSL_MARKER]: true,
+		$temp: true,
+		toJSON() {
+			return { $temp: true };
+		},
+	};
 }
 
 /**
- * Conditional operation flow
- * when(input.sessionId).then([...]).else([...])
+ * Increment operator
+ * inc(1) → { $inc: 1 }
  */
-export function when(condition: unknown): WhenBuilder {
-	const serializedCondition = serializeValue(condition);
-
+export function inc(n: number): OperatorValue {
 	return {
-		then(thenOps: (BuiltOperation | OperationWithAs)[]): ThenBuilder {
-			const normalizedThen = thenOps.map((op) => normalizeOperation(op));
+		[DSL_MARKER]: true,
+		$inc: n,
+		toJSON() {
+			return { $inc: n };
+		},
+	};
+}
 
-			const result: ThenBuilder = {
-				_type: "conditional",
-				_condition: serializedCondition,
-				_then: normalizedThen,
-				else(elseOps: (BuiltOperation | OperationWithAs)[]): ConditionalOperation {
-					return {
-						_type: "conditional",
-						_condition: serializedCondition,
-						_then: normalizedThen,
-						_else: elseOps.map((op) => normalizeOperation(op)),
-					};
+/**
+ * Decrement operator
+ * dec(1) → { $dec: 1 }
+ */
+export function dec(n: number): OperatorValue {
+	return {
+		[DSL_MARKER]: true,
+		$dec: n,
+		toJSON() {
+			return { $dec: n };
+		},
+	};
+}
+
+/**
+ * Push to array
+ * push("item") → { $push: "item" }
+ */
+export function push(...items: unknown[]): OperatorValue {
+	const value = items.length === 1 ? items[0] : items;
+	return {
+		[DSL_MARKER]: true,
+		$push: value,
+		toJSON() {
+			return { $push: value };
+		},
+	};
+}
+
+/**
+ * Pull from array
+ * pull("item") → { $pull: "item" }
+ */
+export function pull(...items: unknown[]): OperatorValue {
+	const value = items.length === 1 ? items[0] : items;
+	return {
+		[DSL_MARKER]: true,
+		$pull: value,
+		toJSON() {
+			return { $pull: value };
+		},
+	};
+}
+
+/**
+ * Add to set
+ * addToSet("item") → { $addToSet: "item" }
+ */
+export function addToSet(...items: unknown[]): OperatorValue {
+	const value = items.length === 1 ? items[0] : items;
+	return {
+		[DSL_MARKER]: true,
+		$addToSet: value,
+		toJSON() {
+			return { $addToSet: value };
+		},
+	};
+}
+
+/**
+ * Default value if undefined
+ * defaultTo("fallback") → { $default: "fallback" }
+ */
+export function defaultTo(value: unknown): OperatorValue {
+	return {
+		[DSL_MARKER]: true,
+		$default: value,
+		toJSON() {
+			return { $default: value };
+		},
+	};
+}
+
+/**
+ * Conditional value
+ * when(cond, "yes", "no") → { $if: { cond, then, else } }
+ */
+export function when(cond: unknown, thenValue: unknown, elseValue?: unknown): OperatorValue {
+	return {
+		[DSL_MARKER]: true,
+		$if: {
+			cond: serialize(cond),
+			then: serialize(thenValue),
+			else: elseValue !== undefined ? serialize(elseValue) : undefined,
+		},
+		toJSON() {
+			return {
+				$if: {
+					cond: serialize(cond),
+					then: serialize(thenValue),
+					else: elseValue !== undefined ? serialize(elseValue) : undefined,
 				},
 			};
-			return result;
 		},
 	};
 }
 
-function normalizeOperation(op: BuiltOperation | OperationWithAs): BuiltOperation {
-	const { as: _, ...rest } = op as OperationWithAs;
-	return rest as BuiltOperation;
+// =============================================================================
+// Operation Builder
+// =============================================================================
+
+interface OperationBuilder {
+	/** Add $as (name this result) */
+	as(name: string): OperationBuilder;
+	/** Add $when (conditional execution) */
+	only(condition: unknown): OperationBuilder;
+	/** Build the operation */
+	build(): Operation;
+}
+
+function createOperationBuilder(effect: string, args: Record<string, unknown>): OperationBuilder {
+	let name: string | undefined;
+	let condition: unknown | undefined;
+
+	const builder: OperationBuilder = {
+		as(n: string) {
+			name = n;
+			return builder;
+		},
+		only(c: unknown) {
+			condition = c;
+			return builder;
+		},
+		build(): Operation {
+			const op: Operation = {
+				$do: effect,
+				$with: serialize(args) as Record<string, unknown>,
+			};
+			if (name) op.$as = name;
+			if (condition !== undefined) op.$when = serialize(condition);
+			return op;
+		},
+	};
+
+	return builder;
+}
+
+/**
+ * Create an operation
+ * op("entity.create", { type: "User", name: input.name }).as("user")
+ */
+export function op(effect: string, args: Record<string, unknown> = {}): OperationBuilder {
+	return createOperationBuilder(effect, args);
 }
 
 // =============================================================================
-// Pipeline - Compile to Raw DSL
+// Entity Helpers (sugar for entity plugin)
 // =============================================================================
 
-/** Pipeline context passed to builder function */
+export const entity = {
+	/**
+	 * Create entity
+	 * entity.create("User", { name: input.name }).as("user")
+	 */
+	create(type: string, data: Record<string, unknown> = {}): OperationBuilder {
+		return op("entity.create", { type, ...data });
+	},
+
+	/**
+	 * Update entity
+	 * entity.update("User", { id: input.id, name: "New" }).as("user")
+	 */
+	update(type: string, data: Record<string, unknown>): OperationBuilder {
+		return op("entity.update", { type, ...data });
+	},
+
+	/**
+	 * Delete entity
+	 * entity.delete("User", input.id).as("deleted")
+	 */
+	delete(type: string, id: unknown): OperationBuilder {
+		return op("entity.delete", { type, id });
+	},
+
+	/**
+	 * Upsert entity
+	 * entity.upsert("User", { id: input.id, name: input.name }).as("user")
+	 */
+	upsert(type: string, data: Record<string, unknown>): OperationBuilder {
+		return op("entity.upsert", { type, ...data });
+	},
+};
+
+// =============================================================================
+// Pipeline Builder
+// =============================================================================
+
 interface PipelineContext<TInput> {
-	/** Input proxy - access creates $input references */
 	input: TInput;
 }
 
 /**
- * Serialize a value to raw DSL format
+ * Serialize a value to JSON format
  */
-function serializeValue(value: unknown): unknown {
+function serialize(value: unknown): unknown {
 	if (isDslValue(value)) {
 		return value.toJSON();
 	}
 	if (Array.isArray(value)) {
-		return value.map(serializeValue);
+		return value.map(serialize);
 	}
 	if (typeof value === "object" && value !== null) {
 		const result: Record<string, unknown> = {};
 		for (const [k, v] of Object.entries(value)) {
-			result[k] = serializeValue(v);
+			result[k] = serialize(v);
 		}
 		return result;
 	}
@@ -445,156 +351,39 @@ function serializeValue(value: unknown): unknown {
 }
 
 /**
- * Compile a built operation to raw EntityOperation
- */
-function compileOperation(built: BuiltOperation): EntityOperation {
-	const result: EntityOperation = {
-		$entity: built._entity,
-		$op: built._op,
-	};
-
-	if (built._id !== undefined) {
-		result.$id = serializeValue(built._id) as string;
-	}
-	if (built._ids !== undefined) {
-		result.$ids = serializeValue(built._ids) as string[];
-	}
-	if (built._where !== undefined) {
-		result.$where = serializeValue(built._where) as Record<string, unknown>;
-	}
-
-	// Add data fields
-	for (const [key, value] of Object.entries(built._data)) {
-		result[key] = serializeValue(value);
-	}
-
-	return result;
-}
-
-/**
- * Compile a conditional operation to raw EntityOperation(s)
- */
-function compileConditional(cond: ConditionalOperation): Record<string, EntityOperation> {
-	const result: Record<string, EntityOperation> = {};
-
-	const thenOps = cond._then;
-	const elseOps = cond._else || [];
-
-	// Find operations with the same name in both branches
-	const thenByName = new Map<string, BuiltOperation>();
-	const elseName = new Map<string, BuiltOperation>();
-
-	for (const op of thenOps) {
-		if (op._name) thenByName.set(op._name, op);
-	}
-	for (const op of elseOps) {
-		if (op._name) elseName.set(op._name, op);
-	}
-
-	// Process matched operations (same name in both branches)
-	for (const [name, thenOp] of thenByName) {
-		const elseOp = elseName.get(name);
-		if (elseOp) {
-			// Conditional operation
-			const compiled: EntityOperation = {
-				$entity: thenOp._entity,
-				$op: {
-					$if: {
-						condition: cond._condition as boolean,
-						then: thenOp._op,
-						else: elseOp._op,
-					},
-				},
-			};
-
-			if (thenOp._id !== undefined) {
-				compiled.$id = serializeValue(thenOp._id) as string;
-			} else if (elseOp._id !== undefined) {
-				compiled.$id = serializeValue(elseOp._id) as string;
-			}
-
-			// Merge data from both branches
-			const allKeys = new Set([...Object.keys(thenOp._data), ...Object.keys(elseOp._data)]);
-			for (const key of allKeys) {
-				const thenVal = thenOp._data[key];
-				const elseVal = elseOp._data[key];
-				if (thenVal !== undefined && elseVal !== undefined) {
-					compiled[key] = serializeValue(thenVal);
-				} else if (thenVal !== undefined) {
-					compiled[key] = serializeValue(thenVal);
-				} else if (elseVal !== undefined) {
-					compiled[key] = serializeValue(elseVal);
-				}
-			}
-
-			result[name] = compiled;
-			elseName.delete(name);
-		} else {
-			const compiled = compileOperation(thenOp);
-			result[name] = compiled;
-		}
-	}
-
-	// Process remaining else operations
-	for (const [name, elseOp] of elseName) {
-		const compiled = compileOperation(elseOp);
-		result[name] = compiled;
-	}
-
-	// Process unnamed operations
-	let unnamedCounter = 0;
-	for (const op of [...thenOps, ...elseOps]) {
-		if (!op._name) {
-			const key = `_unnamed_${unnamedCounter++}`;
-			result[key] = compileOperation(op);
-		}
-	}
-
-	return result;
-}
-
-/**
- * Create a type-safe DSL pipeline
- *
- * @param builder - Function that returns array of operations
- * @returns Compiled MultiEntityDSL (pure JSON)
+ * Create a DSL pipeline
  *
  * @example
  * ```typescript
- * const dsl = pipeline(({ input }) => [
- *   when(input.sessionId)
- *     .then([op.update('Session', { id: input.sessionId }).as('session')])
- *     .else([op.create('Session', { title: input.title }).as('session')]),
- *
- *   op.create('Message', { sessionId: ref.from('session').id }).as('message'),
+ * const dsl = pipe(({ input }) => [
+ *   entity.create("Session", { title: input.title }).as("session"),
+ *   entity.create("Message", { sessionId: ref("session").id }).as("message"),
  * ]);
  * ```
  */
-export function pipeline<TInput extends object = Record<string, unknown>>(
-	builder: (ctx: PipelineContext<TInput>) => PipelineOperation[],
-): MultiEntityDSL {
+export function pipe<TInput extends object = Record<string, unknown>>(
+	builder: (ctx: PipelineContext<TInput>) => OperationBuilder[],
+): Pipeline {
 	const input = createInputProxy<TInput>();
 	const operations = builder({ input });
 
-	const result: MultiEntityDSL = {};
+	return {
+		$pipe: operations.map((op) => op.build()),
+	};
+}
 
-	for (const operation of operations) {
-		if (operation._type === "conditional") {
-			const compiled = compileConditional(operation);
-			Object.assign(result, compiled);
-		} else {
-			const normalized = normalizeOperation(operation);
-			const compiled = compileOperation(normalized);
-			const name = normalized._name || `_op_${Object.keys(result).length}`;
-			result[name] = compiled;
-		}
-	}
-
-	return result;
+/**
+ * Create a single operation DSL
+ */
+export function single<TInput extends object = Record<string, unknown>>(
+	builder: (ctx: PipelineContext<TInput>) => OperationBuilder,
+): Operation {
+	const input = createInputProxy<TInput>();
+	return builder({ input }).build();
 }
 
 // =============================================================================
-// Re-export for convenience
+// Exports
 // =============================================================================
 
 export { createInputProxy };

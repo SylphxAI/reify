@@ -6,8 +6,8 @@ Language-agnostic, serializable expression language for building data pipelines.
 
 - **Pure JSON output** - DSL compiles to plain JSON, no runtime dependencies
 - **Type-safe builder** - TypeScript builder with full type inference
+- **Plugin system** - Extensible via plugins (entity, http, custom)
 - **Cross-language** - JSON spec can be evaluated in any language
-- **Composable** - Pipeline operations with dependencies via `$ref`
 
 ## Installation
 
@@ -18,72 +18,124 @@ bun add @sylphx/udsl
 ## Quick Start
 
 ```typescript
-import { pipeline, op, ref, evaluateMultiEntityDSL } from '@sylphx/udsl';
+import { pipe, entity, ref, now, execute, registerPlugin, entityPlugin } from '@sylphx/udsl';
+
+// Register the entity plugin
+registerPlugin(entityPlugin);
 
 // Define a pipeline (compiles to JSON at define-time)
-const dsl = pipeline(({ input }) => [
-  op.create('Session', {
+const dsl = pipe(({ input }) => [
+  entity.create("Session", {
     title: input.title,
-    createdAt: ref.now(),
-  }).as('session'),
+    createdAt: now(),
+  }).as("session"),
 
-  op.create('Message', {
-    sessionId: ref.from('session').id,
+  entity.create("Message", {
+    sessionId: ref("session").id,
     content: input.content,
-  }).as('message'),
+  }).as("message"),
 ]);
 
 // Output is pure JSON:
 // {
-//   session: { $entity: 'Session', $op: 'create', title: { $input: 'title' }, ... },
-//   message: { $entity: 'Message', $op: 'create', sessionId: { $ref: 'session.id' }, ... }
+//   $pipe: [
+//     { $do: "entity.create", $with: { type: "Session", ... }, $as: "session" },
+//     { $do: "entity.create", $with: { type: "Message", ... }, $as: "message" }
+//   ]
 // }
 
-// Evaluate with input data
-const results = evaluateMultiEntityDSL(dsl, {
-  input: { title: 'Hello', content: 'World' }
-});
+// Execute with input data
+const result = await execute(dsl, { title: 'Hello', content: 'World' });
 ```
 
-## DSL Reference
+## Core Primitives
 
-### Value References
+UDSL has only 5 core primitives:
 
-| Syntax | Description |
-|--------|-------------|
-| `input.field` | Reference input data → `{ $input: 'field' }` |
-| `ref.from('name').field` | Reference sibling operation → `{ $ref: 'name.field' }` |
-| `ref.now()` | Current timestamp → `{ $now: true }` |
-| `ref.temp()` | Generate temp ID → `{ $temp: true }` |
+| Primitive | Description |
+|-----------|-------------|
+| `$do` | Effect to execute (namespaced, e.g., "entity.create") |
+| `$with` | Arguments for the effect |
+| `$as` | Name this result for later reference |
+| `$when` | Only execute if condition is truthy |
+| `$pipe` | Sequence of operations |
 
-### Operators
+## Value References
 
-| Syntax | Description |
-|--------|-------------|
-| `ref.increment(n)` | Increment number → `{ $increment: n }` |
-| `ref.decrement(n)` | Decrement number → `{ $decrement: n }` |
-| `ref.push(...items)` | Push to array → `{ $push: items }` |
-| `ref.pull(...items)` | Pull from array → `{ $pull: items }` |
-| `ref.addToSet(...items)` | Add to set → `{ $addToSet: items }` |
-| `ref.default(value)` | Default if undefined → `{ $default: value }` |
-| `ref.if(cond, then, else?)` | Conditional → `{ $if: { condition, then, else } }` |
+| Syntax | JSON Output | Description |
+|--------|-------------|-------------|
+| `input.field` | `{ $input: "field" }` | Reference input data |
+| `ref("name").field` | `{ $ref: "name.field" }` | Reference previous result |
+| `now()` | `{ $now: true }` | Current timestamp |
+| `temp()` | `{ $temp: true }` | Generate temp ID |
 
-### Operations
+## Operators
 
-| Syntax | Description |
-|--------|-------------|
-| `op.create(entity, data)` | Create entity |
-| `op.update(entity, { id, ...data })` | Update entity by ID |
-| `op.delete(entity, id)` | Delete entity by ID |
-| `op.upsert(entity, { id, ...data })` | Create or update |
-| `op.updateMany(entity, { where?, ids?, data })` | Bulk update |
+| Syntax | JSON Output | Description |
+|--------|-------------|-------------|
+| `inc(n)` | `{ $inc: n }` | Increment number |
+| `dec(n)` | `{ $dec: n }` | Decrement number |
+| `push(...items)` | `{ $push: items }` | Push to array |
+| `pull(...items)` | `{ $pull: items }` | Pull from array |
+| `addToSet(...items)` | `{ $addToSet: items }` | Add to set |
+| `defaultTo(value)` | `{ $default: value }` | Default if undefined |
+| `when(cond, then, else?)` | `{ $if: {...} }` | Conditional value |
 
-### Conditionals
+## Plugin System
+
+UDSL is extensible via plugins:
 
 ```typescript
-when(input.sessionId)
-  .then([op.update('Session', { id: input.sessionId }).as('session')])
-  .else([op.create('Session', { title: input.title }).as('session')])
+import { registerPlugin } from '@sylphx/udsl';
+
+// Register custom plugin
+registerPlugin({
+  namespace: "http",
+  effects: {
+    get: async (args, ctx) => {
+      const response = await fetch(args.url);
+      return response.json();
+    },
+    post: async (args, ctx) => {
+      const response = await fetch(args.url, {
+        method: 'POST',
+        body: JSON.stringify(ctx.resolve(args.body)),
+      });
+      return response.json();
+    },
+  },
+});
+
+// Use in pipeline
+const dsl = pipe(({ input }) => [
+  op("http.post", { url: "/api/users", body: input.data }).as("response"),
+]);
+```
+
+### Built-in Plugins
+
+#### Entity Plugin
+
+```typescript
+import { entityPlugin, registerPlugin } from '@sylphx/udsl';
+
+registerPlugin(entityPlugin);
+
+// Available effects:
+// - entity.create
+// - entity.update
+// - entity.delete
+// - entity.upsert
+```
+
+## Conditional Execution
+
+```typescript
+const dsl = pipe(({ input }) => [
+  entity.create("Session", { title: input.title })
+    .as("session")
+    .only(input.shouldCreate),  // Only execute if truthy
+]);
 ```
 
 ## JSON Schema
@@ -91,29 +143,32 @@ when(input.sessionId)
 The DSL compiles to this JSON structure:
 
 ```typescript
-interface MultiEntityDSL {
-  [operationName: string]: {
-    $entity: string;           // Entity type
-    $op: OpType | { $if: ... }; // Operation type
-    $id?: string | ValueRef;   // ID for update/delete
-    $ids?: string[];           // IDs for bulk
-    $where?: object;           // Where clause for bulk
-    [field: string]: unknown;  // Data fields
-  }
+interface Pipeline {
+  $pipe: Operation[];
+  $return?: Record<string, unknown>;
 }
 
-type OpType = 'create' | 'update' | 'delete' | 'upsert';
+interface Operation {
+  $do: string;                    // Effect name (namespaced)
+  $with?: Record<string, unknown>; // Arguments
+  $as?: string;                   // Result name
+  $when?: unknown;                // Condition
+}
 
 type ValueRef =
   | { $input: string }  // Input reference
-  | { $ref: string }    // Sibling reference
+  | { $ref: string }    // Result reference
   | { $now: true }      // Timestamp
   | { $temp: true };    // Temp ID
 ```
 
-## Cross-Language Evaluation
+## Why UDSL?
 
-The JSON output can be evaluated in any language. See the [evaluator spec](./SPEC.md) for implementation details.
+- **Universal**: Core primitives work for any domain (entity CRUD, HTTP, workflows)
+- **Serializable**: Pure JSON, can be stored in DB, sent over network
+- **Cross-language**: Evaluate in TypeScript, Python, Go, Rust, etc.
+- **Type-safe**: Full TypeScript support with the builder API
+- **Extensible**: Plugin system for custom effects
 
 ## License
 
