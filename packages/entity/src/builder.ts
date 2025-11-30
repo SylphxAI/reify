@@ -5,7 +5,16 @@
  * Supports type-safe operations via StandardEntity protocol.
  */
 
-import { op, type StepBuilder } from "@sylphx/reify-core";
+import {
+	op,
+	type StepBuilder,
+	type RefTemp,
+	type RefNow,
+	type RefInput,
+	type RefResult,
+	type RefProxy,
+	type Operator,
+} from "@sylphx/reify-core";
 
 // =============================================================================
 // Standard Entity Protocol
@@ -86,16 +95,41 @@ type InferFromLensFields<F> = F extends Record<string, unknown>
 	: Record<string, unknown>;
 
 /**
- * Extract entity data type from StandardEntity.
+ * Extract raw entity data type from StandardEntity.
  * Supports both direct type and Lens-style fields inference.
  */
-type EntityData<T> = T extends { fields: infer F }
+type RawEntityData<T> = T extends { fields: infer F }
 	? InferFromLensFields<F>
 	: T extends StandardEntity<string, infer D>
 		? D extends unknown
 			? Record<string, unknown>
 			: D
 		: Record<string, unknown>;
+
+// =============================================================================
+// DSL Value Types - Allow DSL references in place of actual values
+// =============================================================================
+
+/** Any DSL reference type that can be used in place of actual values */
+type AnyDslRef = RefTemp | RefNow | RefInput | RefResult | RefProxy | Operator;
+
+/**
+ * Allow either the actual type T or any DSL reference.
+ */
+type WithDsl<T> = T | AnyDslRef;
+
+/**
+ * Transform entity data to allow DSL references for each property.
+ */
+type DslifyData<T> = {
+	[K in keyof T]: WithDsl<T[K]>;
+};
+
+/**
+ * Entity data with DSL support.
+ * Each field can be either its actual type or a DSL reference.
+ */
+type EntityData<T> = DslifyData<RawEntityData<T>>;
 
 /** Get entity name at runtime */
 function getEntityName<T extends string | StandardEntity>(entity: T): string {

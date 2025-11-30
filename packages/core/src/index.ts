@@ -80,7 +80,7 @@ export {
 	createInputProxy,
 } from "./builder";
 
-export type { StepBuilder } from "./builder";
+export type { StepBuilder, RefProxy } from "./builder";
 
 // =============================================================================
 // Evaluator

@@ -54,7 +54,11 @@ function createInputProxy<T extends object>(basePath = ""): T {
 // Ref Proxy - ref("session").id → { $ref: 'session.id' }
 // =============================================================================
 
-interface RefProxy {
+/**
+ * Proxy type for ref("name").property access.
+ * Allows chained property access that resolves to { $ref: "name.property" }
+ */
+export interface RefProxy {
 	[key: string]: RefProxy;
 }
 
