@@ -1,12 +1,14 @@
 /**
- * Cache Adapter for UDSL
+ * @sylphx/udsl-adapter-cache
  *
- * Creates an entity plugin that executes against an in-memory cache.
+ * Cache Adapter for UDSL - Execute entity operations against in-memory cache.
  * Perfect for client-side optimistic updates.
  *
  * @example
  * ```typescript
- * import { createCachePlugin, registerPlugin, execute } from "@sylphx/udsl";
+ * import { createCachePlugin } from "@sylphx/udsl-adapter-cache";
+ * import { registerPlugin, execute } from "@sylphx/udsl-core";
+ * import { entity } from "@sylphx/udsl-entity";
  *
  * const cache = new Map();
  * registerPlugin(createCachePlugin(cache));
@@ -20,7 +22,7 @@
  * ```
  */
 
-import type { EvalContext, Plugin } from "../types";
+import type { EvalContext, Plugin } from "@sylphx/udsl-core";
 
 /** Minimal cache interface */
 export interface CacheLike {

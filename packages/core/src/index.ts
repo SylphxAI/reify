@@ -1,7 +1,8 @@
 /**
- * UDSL - Mutations as Data
+ * @sylphx/udsl-core
  *
- * Describe operations once, execute anywhere with plugins.
+ * Domain-agnostic DSL primitives.
+ * Use with domain plugins (entity, email, etc.) for actual operations.
  */
 
 // =============================================================================
@@ -26,6 +27,8 @@ export type {
 	Operator,
 	// Core primitives
 	Operation,
+	Conditional,
+	PipelineStep,
 	Pipeline,
 	DSL,
 	// Plugin system
@@ -43,6 +46,8 @@ export {
 	isValueRef,
 	isOperator,
 	isOperation,
+	isConditional,
+	isPipelineStep,
 	isPipeline,
 	isDSL,
 } from "./types";
@@ -57,8 +62,8 @@ export {
 	single,
 	// Operation builder
 	op,
-	// Entity helpers (sugar)
-	entity,
+	// Conditional builder
+	branch,
 	// Value references
 	ref,
 	now,
@@ -75,11 +80,13 @@ export {
 	createInputProxy,
 } from "./builder";
 
+export type { StepBuilder } from "./builder";
+
 // =============================================================================
 // Evaluator
 // =============================================================================
 
-export type { OperationResult, PipelineResult } from "./evaluator";
+export type { OperationResult, ConditionalResult, StepResult, PipelineResult } from "./evaluator";
 export {
 	// Plugin registry
 	registerPlugin,
@@ -90,29 +97,10 @@ export {
 	execute,
 	executePipeline,
 	executeOperation,
+	executeConditional,
 	// Value resolution
 	resolveValue,
 	resetTempIdCounter,
 	// Errors
 	EvaluationError,
 } from "./evaluator";
-
-// =============================================================================
-// Built-in Plugins
-// =============================================================================
-
-export { entityPlugin } from "./plugins/index";
-export type { CreateArgs, UpdateArgs, DeleteArgs, UpsertArgs } from "./plugins/index";
-
-// =============================================================================
-// Adapters
-// =============================================================================
-
-export {
-	createPrismaPlugin,
-	createCachePlugin,
-	type PrismaLike,
-	type PrismaPluginOptions,
-	type CacheLike,
-	type CachePluginOptions,
-} from "./adapters/index";

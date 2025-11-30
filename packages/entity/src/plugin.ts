@@ -2,10 +2,10 @@
  * Entity Plugin
  *
  * Returns operation descriptions for entity CRUD.
- * Use createPrismaPlugin or createCachePlugin for actual execution.
+ * Use adapter plugins for actual execution.
  */
 
-import type { EvalContext, Plugin } from "../types";
+import type { EvalContext, Plugin } from "@sylphx/udsl-core";
 
 /** Entity create args */
 export interface CreateArgs {

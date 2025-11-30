@@ -1,39 +1,14 @@
 {
-	"name": "@sylphx/udsl",
+	"name": "@sylphx/udsl-monorepo",
+	"private": true,
 	"version": "0.1.0",
-	"description": "Mutations as Data - Describe operations once, execute anywhere with plugins",
-	"type": "module",
-	"main": "dist/index.js",
-	"types": "dist/index.d.ts",
-	"exports": {
-		".": {
-			"types": "./dist/index.d.ts",
-			"import": "./dist/index.js"
-		}
-	},
-	"files": ["dist"],
+	"workspaces": ["packages/*"],
 	"scripts": {
-		"build": "tsc",
-		"test": "bun test",
-		"typecheck": "tsc --noEmit",
+		"build": "bun run --filter '*' build",
+		"test": "bun run --filter '*' test",
+		"typecheck": "bun run --filter '*' typecheck",
 		"lint": "biome check .",
-		"format": "biome format --write .",
-		"prepublishOnly": "echo 'Use CI to publish' && exit 1"
-	},
-	"keywords": [
-		"mutation",
-		"pipeline",
-		"plugin",
-		"optimistic-update",
-		"type-safe",
-		"serializable",
-		"effect"
-	],
-	"author": "Sylphx",
-	"license": "MIT",
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/SylphxAI/udsl.git"
+		"format": "biome format --write ."
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^1.9.4",

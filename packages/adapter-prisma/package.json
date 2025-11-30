@@ -1,0 +1,26 @@
+{
+	"name": "@sylphx/udsl-adapter-prisma",
+	"version": "0.1.0",
+	"description": "UDSL Prisma Adapter - Execute entity operations against Prisma",
+	"type": "module",
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"files": ["dist"],
+	"scripts": {
+		"build": "tsc",
+		"test": "bun test",
+		"typecheck": "tsc --noEmit"
+	},
+	"keywords": ["udsl", "prisma", "adapter", "database"],
+	"author": "Sylphx",
+	"license": "MIT",
+	"dependencies": {
+		"@sylphx/udsl-core": "file:../core"
+	}
+}

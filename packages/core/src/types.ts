@@ -1,7 +1,7 @@
 /**
- * UDSL Type Definitions
+ * UDSL Core Type Definitions
  *
- * Mutations as Data - Describe operations once, execute anywhere.
+ * Domain-agnostic DSL primitives.
  * All types are plain objects - serialize however you want.
  */
 
@@ -91,7 +91,7 @@ export type Operator = OpInc | OpDec | OpPush | OpPull | OpAddToSet | OpDefault 
  *   "$do": "entity.create",
  *   "$with": { "type": "User", "name": { "$input": "name" } },
  *   "$as": "user",
- *   "$when": { "$input": "shouldCreate" }
+ *   "$only": { "$input": "shouldCreate" }
  * }
  * ```
  */
@@ -102,32 +102,49 @@ export interface Operation {
 	$with?: Record<string, unknown>;
 	/** Name this result for later $ref */
 	$as?: string;
-	/** Only execute if condition is truthy */
-	$when?: unknown;
+	/** Only execute if condition is truthy (skip otherwise) */
+	$only?: unknown;
 }
 
 /**
- * Pipeline - Sequence of operations
+ * Conditional - Branch execution based on condition
  *
  * @example
  * ```json
  * {
- *   "$pipe": [
- *     { "$do": "entity.create", "$with": {...}, "$as": "user" },
- *     { "$do": "http.post", "$with": { "body": { "$ref": "user" } } }
- *   ]
+ *   "$when": { "$input": "sessionId" },
+ *   "$then": { "$do": "entity.update", "$with": {...} },
+ *   "$else": { "$do": "entity.create", "$with": {...} },
+ *   "$as": "session"
  * }
  * ```
  */
+export interface Conditional {
+	/** Condition to evaluate */
+	$when: unknown;
+	/** Execute if condition is truthy (single step or array, supports nesting) */
+	$then: PipelineStep | PipelineStep[];
+	/** Execute if condition is falsy (single step or array, supports nesting) */
+	$else?: PipelineStep | PipelineStep[];
+	/** Name the result for later $ref */
+	$as?: string;
+}
+
+/** Any pipeline step (operation or conditional) */
+export type PipelineStep = Operation | Conditional;
+
+/**
+ * Pipeline - Sequence of operations
+ */
 export interface Pipeline {
-	/** Ordered list of operations */
-	$pipe: Operation[];
+	/** Ordered list of operations and conditionals */
+	$pipe: PipelineStep[];
 	/** What to return from the pipeline */
 	$return?: Record<string, unknown>;
 }
 
-/** DSL can be a single operation or a pipeline */
-export type DSL = Operation | Pipeline;
+/** DSL can be a single operation, conditional, or pipeline */
+export type DSL = Operation | Conditional | Pipeline;
 
 // =============================================================================
 // Plugin System
@@ -141,7 +158,7 @@ export type EffectHandler<TArgs = Record<string, unknown>, TResult = unknown> = 
 
 /** Plugin definition */
 export interface Plugin {
-	/** Plugin namespace (e.g., "entity", "http", "collect") */
+	/** Plugin namespace (e.g., "entity", "http", "email") */
 	namespace: string;
 	/** Effect handlers */
 	effects: Record<string, EffectHandler>;
@@ -202,10 +219,18 @@ export function isOperation(v: unknown): v is Operation {
 	return typeof v === "object" && v !== null && "$do" in v;
 }
 
+export function isConditional(v: unknown): v is Conditional {
+	return typeof v === "object" && v !== null && "$when" in v && "$then" in v;
+}
+
+export function isPipelineStep(v: unknown): v is PipelineStep {
+	return isOperation(v) || isConditional(v);
+}
+
 export function isPipeline(v: unknown): v is Pipeline {
 	return typeof v === "object" && v !== null && "$pipe" in v && Array.isArray((v as Pipeline).$pipe);
 }
 
 export function isDSL(v: unknown): v is DSL {
-	return isOperation(v) || isPipeline(v);
+	return isOperation(v) || isConditional(v) || isPipeline(v);
 }

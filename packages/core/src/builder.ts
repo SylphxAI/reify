@@ -1,11 +1,11 @@
 /**
- * UDSL Builder
+ * UDSL Core Builder
  *
  * Type-safe builder for creating operation pipelines.
- * Builder output is plain objects - serialize however you want.
+ * Domain-agnostic - use with any plugin.
  */
 
-import type { Operation, Pipeline, RefNow, RefTemp } from "./types";
+import type { Conditional, Operation, Pipeline, PipelineStep, RefNow, RefTemp } from "./types";
 
 // =============================================================================
 // Symbol for identifying DSL values (used during build, not in output)
@@ -241,13 +241,21 @@ export function when(cond: unknown, thenValue: unknown, elseValue?: unknown): Op
 // Operation Builder
 // =============================================================================
 
-interface OperationBuilder {
+interface OperationBuilder extends StepBuilder {
 	/** Add $as (name this result) */
 	as(name: string): OperationBuilder;
-	/** Add $when (conditional execution) */
+	/** Add $only (conditional execution - skip if falsy) */
 	only(condition: unknown): OperationBuilder;
 	/** Build the operation */
 	build(): Operation;
+}
+
+/** Common interface for both Operation and Conditional builders */
+export interface StepBuilder {
+	/** Name this result for later $ref */
+	as(name: string): StepBuilder;
+	/** Build the step */
+	build(): PipelineStep;
 }
 
 function createOperationBuilder(effect: string, args: Record<string, unknown>): OperationBuilder {
@@ -269,7 +277,7 @@ function createOperationBuilder(effect: string, args: Record<string, unknown>): 
 				$with: serialize(args) as Record<string, unknown>,
 			};
 			if (name) op.$as = name;
-			if (condition !== undefined) op.$when = serialize(condition);
+			if (condition !== undefined) op.$only = serialize(condition);
 			return op;
 		},
 	};
@@ -286,42 +294,69 @@ export function op(effect: string, args: Record<string, unknown> = {}): Operatio
 }
 
 // =============================================================================
-// Entity Helpers (sugar for entity plugin)
+// Conditional Builder - branch().then().else()
 // =============================================================================
 
-export const entity = {
-	/**
-	 * Create entity
-	 * entity.create("User", { name: input.name }).as("user")
-	 */
-	create(type: string, data: Record<string, unknown> = {}): OperationBuilder {
-		return op("entity.create", { type, ...data });
-	},
+/** Builder that needs .then() */
+interface ConditionalThenBuilder {
+	/** Execute if condition is truthy (supports nesting) */
+	then(...steps: StepBuilder[]): ConditionalElseBuilder;
+}
 
-	/**
-	 * Update entity
-	 * entity.update("User", { id: input.id, name: "New" }).as("user")
-	 */
-	update(type: string, data: Record<string, unknown>): OperationBuilder {
-		return op("entity.update", { type, ...data });
-	},
+/** Builder that can optionally have .else() */
+interface ConditionalElseBuilder extends StepBuilder {
+	/** Execute if condition is falsy (supports nesting) */
+	else(...steps: StepBuilder[]): ConditionalElseBuilder;
+}
 
-	/**
-	 * Delete entity
-	 * entity.delete("User", input.id).as("deleted")
-	 */
-	delete(type: string, id: unknown): OperationBuilder {
-		return op("entity.delete", { type, id });
-	},
+function createConditionalBuilder(condition: unknown): ConditionalThenBuilder {
+	let thenSteps: StepBuilder[] = [];
+	let elseSteps: StepBuilder[] | undefined;
+	let name: string | undefined;
 
-	/**
-	 * Upsert entity
-	 * entity.upsert("User", { id: input.id, name: input.name }).as("user")
-	 */
-	upsert(type: string, data: Record<string, unknown>): OperationBuilder {
-		return op("entity.upsert", { type, ...data });
-	},
-};
+	const elseBuilder: ConditionalElseBuilder = {
+		else(...steps: StepBuilder[]) {
+			elseSteps = steps;
+			return elseBuilder;
+		},
+		as(n: string) {
+			name = n;
+			return elseBuilder;
+		},
+		build(): Conditional {
+			const cond: Conditional = {
+				$when: serialize(condition),
+				$then:
+					thenSteps.length === 1
+						? thenSteps[0]!.build()
+						: thenSteps.map((step) => step.build()),
+			};
+			if (elseSteps) {
+				cond.$else =
+					elseSteps.length === 1
+						? elseSteps[0]!.build()
+						: elseSteps.map((step) => step.build());
+			}
+			if (name) cond.$as = name;
+			return cond;
+		},
+	};
+
+	return {
+		then(...steps: StepBuilder[]) {
+			thenSteps = steps;
+			return elseBuilder;
+		},
+	};
+}
+
+/**
+ * Create a conditional branch
+ * branch(input.sessionId).then(op(...)).else(op(...)).as("session")
+ */
+export function branch(condition: unknown): ConditionalThenBuilder {
+	return createConditionalBuilder(condition);
+}
 
 // =============================================================================
 // Pipeline Builder
@@ -357,19 +392,22 @@ function serialize(value: unknown): unknown {
  * @example
  * ```typescript
  * const dsl = pipe(({ input }) => [
- *   entity.create("Session", { title: input.title }).as("session"),
- *   entity.create("Message", { sessionId: ref("session").id }).as("message"),
+ *   op("entity.create", { type: "Session", title: input.title }).as("session"),
+ *   branch(input.sessionId)
+ *     .then(op("entity.update", { ... }))
+ *     .else(op("entity.create", { ... }))
+ *     .as("result"),
  * ]);
  * ```
  */
 export function pipe<TInput extends object = Record<string, unknown>>(
-	builder: (ctx: PipelineContext<TInput>) => OperationBuilder[],
+	builder: (ctx: PipelineContext<TInput>) => StepBuilder[],
 ): Pipeline {
 	const input = createInputProxy<TInput>();
-	const operations = builder({ input });
+	const steps = builder({ input });
 
 	return {
-		$pipe: operations.map((op) => op.build()),
+		$pipe: steps.map((step) => step.build()),
 	};
 }
 

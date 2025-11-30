@@ -1,15 +1,18 @@
 /**
- * UDSL Executor
+ * UDSL Core Executor
  *
  * Executes operation pipelines using registered plugins.
  */
 
 import {
+	type Conditional,
 	type DSL,
 	type EvalContext,
 	type Operation,
 	type Pipeline,
+	type PipelineStep,
 	type Plugin,
+	isConditional,
 	isOperation,
 	isPipeline,
 	isRefInput,
@@ -181,7 +184,7 @@ export interface OperationResult {
 	args: Record<string, unknown>;
 	/** Result from effect handler */
 	result: unknown;
-	/** Was skipped due to $when */
+	/** Was skipped due to $only */
 	skipped: boolean;
 }
 
@@ -192,9 +195,9 @@ export async function executeOperation(
 	operation: Operation,
 	ctx: EvalContext,
 ): Promise<OperationResult> {
-	const { $do: effect, $with: args = {}, $as: name, $when: condition } = operation;
+	const { $do: effect, $with: args = {}, $as: name, $only: condition } = operation;
 
-	// Check condition
+	// Check $only condition (skip if falsy)
 	if (condition !== undefined) {
 		const condResult = resolveValue(condition, ctx);
 		if (!isTruthy(condResult)) {
@@ -227,19 +230,110 @@ export async function executeOperation(
 }
 
 // =============================================================================
+// Conditional Execution
+// =============================================================================
+
+/** Result of executing a conditional */
+export interface ConditionalResult {
+	/** Conditional name ($as) */
+	name?: string;
+	/** Which branch was taken */
+	branch: "then" | "else";
+	/** Results from branch operations */
+	operations: OperationResult[];
+	/** Final result (last operation result) */
+	result: unknown;
+}
+
+/**
+ * Execute a conditional branch (supports nesting)
+ */
+export async function executeConditional(
+	conditional: Conditional,
+	ctx: EvalContext,
+	results: Record<string, unknown>,
+): Promise<ConditionalResult> {
+	const { $when: condition, $then: thenBranch, $else: elseBranch, $as: name } = conditional;
+
+	// Evaluate condition
+	const condResult = resolveValue(condition, ctx);
+	const shouldThen = isTruthy(condResult);
+
+	// Get the branch to execute
+	const branch = shouldThen ? thenBranch : elseBranch;
+	const branchName = shouldThen ? "then" : "else";
+
+	// If no branch (e.g., no $else and condition is false), return empty result
+	if (!branch) {
+		return { name, branch: branchName, operations: [], result: undefined };
+	}
+
+	// Normalize to array
+	const steps = Array.isArray(branch) ? branch : [branch];
+	const stepResults: OperationResult[] = [];
+	let lastResult: unknown;
+
+	// Execute branch steps (supports nested conditionals)
+	for (const step of steps) {
+		if (isConditional(step)) {
+			// Nested conditional
+			const condResult = await executeConditional(step, ctx, results);
+			// Flatten nested operations into our results
+			stepResults.push(...condResult.operations);
+			if (condResult.name) {
+				results[condResult.name] = condResult.result;
+			}
+			lastResult = condResult.result;
+		} else {
+			// Regular operation
+			const opResult = await executeOperation(step, ctx);
+			stepResults.push(opResult);
+
+			// Store named results
+			if (opResult.name && !opResult.skipped) {
+				results[opResult.name] = opResult.result;
+			}
+
+			if (!opResult.skipped) {
+				lastResult = opResult.result;
+			}
+		}
+	}
+
+	return { name, branch: branchName, operations: stepResults, result: lastResult };
+}
+
+/** Result of executing a pipeline step (operation or conditional) */
+export type StepResult = OperationResult | ConditionalResult;
+
+/**
+ * Execute a pipeline step (operation or conditional)
+ */
+async function executeStep(
+	step: PipelineStep,
+	ctx: EvalContext,
+	results: Record<string, unknown>,
+): Promise<StepResult> {
+	if (isConditional(step)) {
+		return executeConditional(step, ctx, results);
+	}
+	return executeOperation(step, ctx);
+}
+
+// =============================================================================
 // Pipeline Execution
 // =============================================================================
 
 /** Result of executing a pipeline */
 export interface PipelineResult {
-	/** Results from each operation */
-	operations: OperationResult[];
+	/** Results from each step (operations and conditionals) */
+	steps: StepResult[];
 	/** Final return value */
 	result: Record<string, unknown>;
 }
 
 /**
- * Execute a pipeline of operations
+ * Execute a pipeline of operations and conditionals
  */
 export async function executePipeline(
 	pipeline: Pipeline,
@@ -247,7 +341,7 @@ export async function executePipeline(
 	options: { now?: Date; tempId?: () => string } = {},
 ): Promise<PipelineResult> {
 	const results: Record<string, unknown> = {};
-	const operationResults: OperationResult[] = [];
+	const stepResults: StepResult[] = [];
 
 	// Create context with resolve helper
 	const createCtx = (): EvalContext => ({
@@ -258,14 +352,19 @@ export async function executePipeline(
 		resolve: (v) => resolveValue(v, createCtx()),
 	});
 
-	for (const operation of pipeline.$pipe) {
+	for (const step of pipeline.$pipe) {
 		const ctx = createCtx();
-		const opResult = await executeOperation(operation, ctx);
-		operationResults.push(opResult);
+		const stepResult = await executeStep(step, ctx, results);
+		stepResults.push(stepResult);
 
-		// Store result if named
-		if (opResult.name && !opResult.skipped) {
-			results[opResult.name] = opResult.result;
+		// Store named result (for operations, conditionals handle this internally)
+		if (isOperationResult(stepResult)) {
+			if (stepResult.name && !stepResult.skipped) {
+				results[stepResult.name] = stepResult.result;
+			}
+		} else if (stepResult.name) {
+			// Conditional result
+			results[stepResult.name] = stepResult.result;
 		}
 	}
 
@@ -274,11 +373,16 @@ export async function executePipeline(
 		? (resolveValue(pipeline.$return, createCtx()) as Record<string, unknown>)
 		: results;
 
-	return { operations: operationResults, result: returnValue };
+	return { steps: stepResults, result: returnValue };
+}
+
+/** Type guard for OperationResult */
+function isOperationResult(result: StepResult): result is OperationResult {
+	return "effect" in result;
 }
 
 /**
- * Execute a DSL (operation or pipeline)
+ * Execute a DSL (operation, conditional, or pipeline)
  */
 export async function execute(
 	dsl: DSL,
@@ -294,7 +398,12 @@ export async function execute(
 		return executePipeline({ $pipe: [dsl] }, input, options);
 	}
 
-	throw new EvaluationError("Invalid DSL: expected Operation or Pipeline");
+	if (isConditional(dsl)) {
+		// Wrap single conditional in pipeline
+		return executePipeline({ $pipe: [dsl] }, input, options);
+	}
+
+	throw new EvaluationError("Invalid DSL: expected Operation, Conditional, or Pipeline");
 }
 
 // =============================================================================

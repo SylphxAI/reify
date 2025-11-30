@@ -10,6 +10,41 @@
         "typescript": "^5.8.3",
       },
     },
+    "packages/adapter-cache": {
+      "name": "@sylphx/udsl-adapter-cache",
+      "version": "0.1.0",
+      "dependencies": {
+        "@sylphx/udsl-core": "workspace:*",
+      },
+    },
+    "packages/adapter-prisma": {
+      "name": "@sylphx/udsl-adapter-prisma",
+      "version": "0.1.0",
+      "dependencies": {
+        "@sylphx/udsl-core": "workspace:*",
+      },
+    },
+    "packages/core": {
+      "name": "@sylphx/udsl-core",
+      "version": "0.1.0",
+    },
+    "packages/entity": {
+      "name": "@sylphx/udsl-entity",
+      "version": "0.1.0",
+      "dependencies": {
+        "@sylphx/udsl-core": "workspace:*",
+      },
+    },
+    "packages/udsl": {
+      "name": "@sylphx/udsl",
+      "version": "0.1.0",
+      "dependencies": {
+        "@sylphx/udsl-adapter-cache": "workspace:*",
+        "@sylphx/udsl-adapter-prisma": "workspace:*",
+        "@sylphx/udsl-core": "workspace:*",
+        "@sylphx/udsl-entity": "workspace:*",
+      },
+    },
   },
   "packages": {
     "@biomejs/biome": ["@biomejs/biome@1.9.4", "", { "optionalDependencies": { "@biomejs/cli-darwin-arm64": "1.9.4", "@biomejs/cli-darwin-x64": "1.9.4", "@biomejs/cli-linux-arm64": "1.9.4", "@biomejs/cli-linux-arm64-musl": "1.9.4", "@biomejs/cli-linux-x64": "1.9.4", "@biomejs/cli-linux-x64-musl": "1.9.4", "@biomejs/cli-win32-arm64": "1.9.4", "@biomejs/cli-win32-x64": "1.9.4" }, "bin": { "biome": "bin/biome" } }, "sha512-1rkd7G70+o9KkTn5KLmDYXihGoTaIGO9PIIN2ZB7UJxFrWw04CZHPYiMRjYsaDvVV7hP1dYNRLxSANLaBFGpog=="],
@@ -29,6 +64,16 @@
     "@biomejs/cli-win32-arm64": ["@biomejs/cli-win32-arm64@1.9.4", "", { "os": "win32", "cpu": "arm64" }, "sha512-tlbhLk+WXZmgwoIKwHIHEBZUwxml7bRJgk0X2sPyNR3S93cdRq6XulAZRQJ17FYGGzWne0fgrXBKpl7l4M87Hg=="],
 
     "@biomejs/cli-win32-x64": ["@biomejs/cli-win32-x64@1.9.4", "", { "os": "win32", "cpu": "x64" }, "sha512-8Y5wMhVIPaWe6jw2H+KlEm4wP/f7EW3810ZLmDlrEEy5KvBsb9ECEfu/kMWD484ijfQ8+nIi0giMgu9g1UAuuA=="],
+
+    "@sylphx/udsl": ["@sylphx/udsl@workspace:packages/udsl"],
+
+    "@sylphx/udsl-adapter-cache": ["@sylphx/udsl-adapter-cache@workspace:packages/adapter-cache"],
+
+    "@sylphx/udsl-adapter-prisma": ["@sylphx/udsl-adapter-prisma@workspace:packages/adapter-prisma"],
+
+    "@sylphx/udsl-core": ["@sylphx/udsl-core@workspace:packages/core"],
+
+    "@sylphx/udsl-entity": ["@sylphx/udsl-entity@workspace:packages/entity"],
 
     "@types/bun": ["@types/bun@1.3.3", "", { "dependencies": { "bun-types": "1.3.3" } }, "sha512-ogrKbJ2X5N0kWLLFKeytG0eHDleBYtngtlbu9cyBKFtNL3cnpDZkNdQj8flVf6WTZUX5ulI9AY1oa7ljhSrp+g=="],
 

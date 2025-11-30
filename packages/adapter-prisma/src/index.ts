@@ -1,12 +1,14 @@
 /**
- * Prisma Adapter for UDSL
+ * @sylphx/udsl-adapter-prisma
  *
- * Creates an entity plugin that executes against Prisma.
+ * Prisma Adapter for UDSL - Execute entity operations against Prisma.
  *
  * @example
  * ```typescript
  * import { PrismaClient } from "@prisma/client";
- * import { createPrismaPlugin, registerPlugin, execute } from "@sylphx/udsl";
+ * import { createPrismaPlugin } from "@sylphx/udsl-adapter-prisma";
+ * import { registerPlugin, execute } from "@sylphx/udsl-core";
+ * import { entity } from "@sylphx/udsl-entity";
  *
  * const prisma = new PrismaClient();
  * registerPlugin(createPrismaPlugin(prisma));
@@ -20,7 +22,7 @@
  * ```
  */
 
-import type { EvalContext, Plugin } from "../types";
+import type { EvalContext, Plugin } from "@sylphx/udsl-core";
 
 /** Minimal Prisma client interface */
 export interface PrismaLike {

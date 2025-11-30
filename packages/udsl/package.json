@@ -1,0 +1,41 @@
+{
+	"name": "@sylphx/udsl",
+	"version": "0.1.0",
+	"description": "UDSL - Mutations as Data. Describe operations once, execute anywhere with plugins.",
+	"type": "module",
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"files": ["dist"],
+	"scripts": {
+		"build": "tsc",
+		"test": "bun test",
+		"typecheck": "tsc --noEmit"
+	},
+	"keywords": [
+		"mutation",
+		"pipeline",
+		"plugin",
+		"optimistic-update",
+		"type-safe",
+		"serializable",
+		"effect"
+	],
+	"author": "Sylphx",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/SylphxAI/udsl.git"
+	},
+	"dependencies": {
+		"@sylphx/udsl-core": "file:../core",
+		"@sylphx/udsl-entity": "file:../entity",
+		"@sylphx/udsl-adapter-cache": "file:../adapter-cache",
+		"@sylphx/udsl-adapter-prisma": "file:../adapter-prisma"
+	}
+}

@@ -1,0 +1,23 @@
+{
+	"name": "@sylphx/udsl-core",
+	"version": "0.1.0",
+	"description": "UDSL Core - Domain-agnostic DSL primitives",
+	"type": "module",
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"files": ["dist"],
+	"scripts": {
+		"build": "tsc",
+		"test": "bun test",
+		"typecheck": "tsc --noEmit"
+	},
+	"keywords": ["udsl", "dsl", "pipeline", "plugin", "type-safe", "serializable"],
+	"author": "Sylphx",
+	"license": "MIT"
+}
