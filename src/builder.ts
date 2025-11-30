@@ -1,7 +1,8 @@
 /**
- * UDSL - TypeScript Builder
+ * UDSL Builder
  *
- * Type-safe builder that compiles to pure JSON DSL at define-time.
+ * Type-safe builder for creating operation pipelines.
+ * Builder output is plain objects - serialize however you want.
  */
 
 import type { Operation, Pipeline, RefNow, RefTemp } from "./types";

@@ -143,7 +143,8 @@ function isOperator(value: unknown): value is Record<string, unknown> {
 }
 
 function applyOperator(current: unknown, op: Record<string, unknown>): unknown {
-	const [[opName, opValue]] = Object.entries(op);
+	const entries = Object.entries(op);
+	const [opName, opValue] = entries[0]!;
 
 	switch (opName) {
 		case "$inc":

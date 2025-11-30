@@ -1,7 +1,7 @@
 {
 	"name": "@sylphx/udsl",
 	"version": "0.1.0",
-	"description": "Universal DSL - Language-agnostic, serializable expression language for building data pipelines",
+	"description": "Mutations as Data - Describe operations once, execute anywhere with plugins",
 	"type": "module",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
@@ -21,13 +21,13 @@
 		"prepublishOnly": "echo 'Use CI to publish' && exit 1"
 	},
 	"keywords": [
-		"dsl",
-		"json",
-		"serializable",
-		"expression-language",
-		"cross-language",
+		"mutation",
 		"pipeline",
-		"type-safe"
+		"plugin",
+		"optimistic-update",
+		"type-safe",
+		"serializable",
+		"effect"
 	],
 	"author": "Sylphx",
 	"license": "MIT",

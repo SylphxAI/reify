@@ -1,7 +1,7 @@
 /**
- * UDSL - Evaluator with Plugin System
+ * UDSL Executor
  *
- * Evaluates DSL expressions using registered plugins.
+ * Executes operation pipelines using registered plugins.
  */
 
 import {

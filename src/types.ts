@@ -1,8 +1,8 @@
 /**
- * UDSL - Universal DSL Type Definitions
+ * UDSL Type Definitions
  *
- * Language-agnostic, serializable expression language.
- * All types here map 1:1 to JSON - no JavaScript-specific constructs.
+ * Mutations as Data - Describe operations once, execute anywhere.
+ * All types are plain objects - serialize however you want.
  */
 
 // =============================================================================
@@ -79,7 +79,7 @@ export interface OpIf {
 export type Operator = OpInc | OpDec | OpPush | OpPull | OpAddToSet | OpDefault | OpIf;
 
 // =============================================================================
-// Core Primitives - The Universal DSL
+// Core Primitives - Operation and Pipeline
 // =============================================================================
 
 /**

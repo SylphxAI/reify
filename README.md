@@ -1,192 +1,199 @@
-# UDSL - Universal DSL
+# UDSL
 
-Language-agnostic, serializable expression language for building data pipelines.
+**Mutations as Data** — Describe operations once, execute anywhere with plugins.
 
-## Features
+```typescript
+import { pipe, entity, ref, execute, createCachePlugin } from '@sylphx/udsl';
 
-- **Pure JSON output** - DSL compiles to plain JSON, no runtime dependencies
-- **Type-safe builder** - TypeScript builder with full type inference
-- **Plugin system** - Extensible via plugins (entity, http, custom)
-- **Cross-language** - JSON spec can be evaluated in any language
+// Describe what you want to do
+const createSession = pipe(({ input }) => [
+  entity.create("Session", { title: input.title }).as("session"),
+  entity.create("Message", {
+    sessionId: ref("session").id,
+    content: input.content
+  }).as("message"),
+]);
+
+// Execute with any plugin
+const cache = new Map();
+await execute(createSession, { title: "Chat", content: "Hello" }, createCachePlugin(cache));
+```
+
+## Why UDSL?
+
+| Traditional | UDSL |
+|-------------|------|
+| Logic scattered across client/server | Describe once, execute anywhere |
+| Operations disappear after execution | Operations are data (storable, replayable) |
+| Bound to specific runtime | Plugin-based execution |
+
+## Core Concept
+
+```
+Builder  →  Operation Objects  →  Executor
+   ↓              ↓                  ↓
+Type-safe    Serializable      Plugin-based
+```
+
+**UDSL separates "what to do" from "how to do it".**
+
+- **Builder**: Type-safe DSL for describing operations
+- **Objects**: Plain JavaScript objects (serialize however you want)
+- **Executor**: Plugins define how operations are executed
 
 ## Installation
 
 ```bash
+npm install @sylphx/udsl
+# or
 bun add @sylphx/udsl
 ```
 
-## Quick Start
+## Features
+
+### Dependency Resolution
+
+Reference results from previous operations:
 
 ```typescript
-import { pipe, entity, ref, now, execute, registerPlugin, entityPlugin } from '@sylphx/udsl';
-
-// Register the entity plugin
-registerPlugin(entityPlugin);
-
-// Define a pipeline (compiles to JSON at define-time)
-const dsl = pipe(({ input }) => [
-  entity.create("Session", {
-    title: input.title,
-    createdAt: now(),
-  }).as("session"),
-
-  entity.create("Message", {
-    sessionId: ref("session").id,
-    content: input.content,
-  }).as("message"),
+pipe(({ input }) => [
+  entity.create("User", { name: input.name }).as("user"),
+  entity.create("Profile", {
+    userId: ref("user").id,  // References the created user's id
+    bio: input.bio
+  }).as("profile"),
 ]);
-
-// Output is pure JSON:
-// {
-//   $pipe: [
-//     { $do: "entity.create", $with: { type: "Session", ... }, $as: "session" },
-//     { $do: "entity.create", $with: { type: "Message", ... }, $as: "message" }
-//   ]
-// }
-
-// Execute with input data
-const result = await execute(dsl, { title: 'Hello', content: 'World' });
 ```
 
-## Core Primitives
+### Conditional Execution
 
-UDSL has only 5 core primitives:
-
-| Primitive | Description |
-|-----------|-------------|
-| `$do` | Effect to execute (namespaced, e.g., "entity.create") |
-| `$with` | Arguments for the effect |
-| `$as` | Name this result for later reference |
-| `$when` | Only execute if condition is truthy |
-| `$pipe` | Sequence of operations |
-
-## Value References
-
-| Syntax | JSON Output | Description |
-|--------|-------------|-------------|
-| `input.field` | `{ $input: "field" }` | Reference input data |
-| `ref("name").field` | `{ $ref: "name.field" }` | Reference previous result |
-| `now()` | `{ $now: true }` | Current timestamp |
-| `temp()` | `{ $temp: true }` | Generate temp ID |
-
-## Operators
-
-| Syntax | JSON Output | Description |
-|--------|-------------|-------------|
-| `inc(n)` | `{ $inc: n }` | Increment number |
-| `dec(n)` | `{ $dec: n }` | Decrement number |
-| `push(...items)` | `{ $push: items }` | Push to array |
-| `pull(...items)` | `{ $pull: items }` | Pull from array |
-| `addToSet(...items)` | `{ $addToSet: items }` | Add to set |
-| `defaultTo(value)` | `{ $default: value }` | Default if undefined |
-| `when(cond, then, else?)` | `{ $if: {...} }` | Conditional value |
-
-## Plugin System
-
-UDSL is extensible via plugins:
+Skip operations based on conditions:
 
 ```typescript
-import { registerPlugin } from '@sylphx/udsl';
+pipe(({ input }) => [
+  entity.create("User", { name: input.name })
+    .as("user")
+    .only(input.shouldCreate),  // Only runs if truthy
+]);
+```
 
-// Register custom plugin
-registerPlugin({
-  namespace: "http",
-  effects: {
-    get: async (args, ctx) => {
-      const response = await fetch(args.url);
-      return response.json();
-    },
-    post: async (args, ctx) => {
-      const response = await fetch(args.url, {
-        method: 'POST',
-        body: JSON.stringify(ctx.resolve(args.body)),
-      });
-      return response.json();
-    },
-  },
+### Atomic Operators
+
+Update operations with built-in operators:
+
+```typescript
+pipe(({ input }) => [
+  entity.update("User", {
+    id: input.userId,
+    loginCount: inc(1),      // Increment
+    tags: push("verified"),  // Push to array
+    score: dec(5),           // Decrement
+  }).as("user"),
+]);
+```
+
+### Plugin System
+
+Same operation description, different execution strategies:
+
+```typescript
+// Client: Update cache immediately (optimistic)
+registerPlugin(createCachePlugin(cache));
+await execute(mutation, data);
+
+// Server: Persist to database
+registerPlugin(createPrismaPlugin(prisma));
+await execute(mutation, data);
+
+// Testing: Dry run
+registerPlugin(dryRunPlugin);
+await execute(mutation, data);
+```
+
+## API Reference
+
+### Builder Functions
+
+| Function | Description |
+|----------|-------------|
+| `pipe(fn)` | Create operation pipeline |
+| `entity.create(type, data)` | Create entity operation |
+| `entity.update(type, data)` | Update entity operation |
+| `entity.delete(type, id)` | Delete entity operation |
+| `op(name, args)` | Generic operation |
+
+### Value References
+
+| Function | Description |
+|----------|-------------|
+| `input.field` | Reference input data |
+| `ref("name").field` | Reference previous result |
+| `now()` | Current timestamp |
+| `temp()` | Generate temp ID |
+
+### Operators
+
+| Function | Description |
+|----------|-------------|
+| `inc(n)` | Increment number |
+| `dec(n)` | Decrement number |
+| `push(...items)` | Push to array |
+| `pull(...items)` | Remove from array |
+| `addToSet(...items)` | Add unique to array |
+| `defaultTo(value)` | Default if undefined |
+| `when(cond, then, else?)` | Conditional value |
+
+### Adapters
+
+| Adapter | Use Case |
+|---------|----------|
+| `createPrismaPlugin(prisma)` | Server-side DB execution |
+| `createCachePlugin(cache)` | Client-side optimistic updates |
+| `entityPlugin` | Returns operation descriptions (for custom handling) |
+
+## Use Cases
+
+### Optimistic Updates
+
+```typescript
+// Same mutation, different execution
+const mutation = pipe(({ input }) => [
+  entity.create("Message", { content: input.text }).as("msg"),
+]);
+
+// Client: Instant UI update
+execute(mutation, data, cachePlugin);
+
+// Server: Persist to DB
+execute(mutation, data, prismaPlugin);
+```
+
+### Audit Logging
+
+```typescript
+// Store operations as data
+await db.auditLog.insert({
+  userId: ctx.user.id,
+  operation: mutation,  // Plain object, store directly
+  timestamp: new Date(),
 });
 
-// Use in pipeline
-const dsl = pipe(({ input }) => [
-  op("http.post", { url: "/api/users", body: input.data }).as("response"),
-]);
+// Replay later
+const logs = await db.auditLog.findMany();
+for (const log of logs) {
+  await execute(log.operation, {});
+}
 ```
 
-### Built-in Plugins
-
-#### Entity Plugin (Descriptive)
-
-Returns operation descriptions. Use for defining what to do:
+### Custom Plugins
 
 ```typescript
-import { entityPlugin, registerPlugin } from '@sylphx/udsl';
-
-registerPlugin(entityPlugin);
-
-// Available effects: entity.create, entity.update, entity.delete, entity.upsert
-```
-
-### Adapters (Execution)
-
-Pre-built plugins that actually execute effects:
-
-#### Prisma Adapter
-
-```typescript
-import { PrismaClient } from "@prisma/client";
-import { createPrismaPlugin, registerPlugin, execute, pipe, entity } from '@sylphx/udsl';
-
-const prisma = new PrismaClient();
-registerPlugin(createPrismaPlugin(prisma));
-
-const dsl = pipe(({ input }) => [
-  entity.create("User", { name: input.name, email: input.email }).as("user"),
-]);
-
-// Actually creates in database
-const result = await execute(dsl, { name: "John", email: "john@example.com" });
-console.log(result.result.user); // { id: "...", name: "John", email: "..." }
-```
-
-#### Cache Adapter
-
-For client-side optimistic updates:
-
-```typescript
-import { createCachePlugin, registerPlugin, execute, pipe, entity, inc } from '@sylphx/udsl';
-
-const cache = new Map();
-registerPlugin(createCachePlugin(cache));
-
-const dsl = pipe(({ input }) => [
-  entity.create("User", { name: input.name }).as("user"),
-  entity.update("User", { id: ref("user").id, loginCount: inc(1) }).as("updated"),
-]);
-
-// Updates cache immediately (optimistic)
-await execute(dsl, { name: "John" });
-console.log(cache.get("User:temp_1")); // { id: "temp_1", name: "John", loginCount: 1 }
-```
-
-### Writing Custom Plugins
-
-```typescript
-import { registerPlugin, type Plugin } from '@sylphx/udsl';
-
 const myPlugin: Plugin = {
-  namespace: "myservice",
+  namespace: "email",
   effects: {
-    // Sync effect
-    validate: (args, ctx) => {
-      const data = ctx.resolve(args.data);
-      if (!data.email) throw new Error("Email required");
-      return { valid: true };
-    },
-
-    // Async effect
     send: async (args, ctx) => {
-      const email = ctx.resolve(args.email);
-      await sendEmail(email);
+      const to = ctx.resolve(args.to);
+      await sendEmail(to, args.subject, args.body);
       return { sent: true };
     },
   },
@@ -194,54 +201,31 @@ const myPlugin: Plugin = {
 
 registerPlugin(myPlugin);
 
-// Use in pipeline
-const dsl = pipe(({ input }) => [
-  op("myservice.validate", { data: input }).as("validation"),
-  op("myservice.send", { email: input.email }).as("email").only(ref("validation").valid),
+const workflow = pipe(({ input }) => [
+  entity.create("User", { email: input.email }).as("user"),
+  op("email.send", {
+    to: ref("user").email,
+    subject: "Welcome!"
+  }).as("email"),
 ]);
 ```
 
-## Conditional Execution
+## Serialization
+
+Operation objects are plain JavaScript. Serialize however you want:
 
 ```typescript
-const dsl = pipe(({ input }) => [
-  entity.create("Session", { title: input.title })
-    .as("session")
-    .only(input.shouldCreate),  // Only execute if truthy
-]);
+const mutation = pipe(({ input }) => [...]);
+
+// JSON
+const json = JSON.stringify(mutation);
+
+// MessagePack
+const packed = msgpack.encode(mutation);
+
+// Store in DB
+await db.operations.insert({ data: mutation });
 ```
-
-## JSON Schema
-
-The DSL compiles to this JSON structure:
-
-```typescript
-interface Pipeline {
-  $pipe: Operation[];
-  $return?: Record<string, unknown>;
-}
-
-interface Operation {
-  $do: string;                    // Effect name (namespaced)
-  $with?: Record<string, unknown>; // Arguments
-  $as?: string;                   // Result name
-  $when?: unknown;                // Condition
-}
-
-type ValueRef =
-  | { $input: string }  // Input reference
-  | { $ref: string }    // Result reference
-  | { $now: true }      // Timestamp
-  | { $temp: true };    // Temp ID
-```
-
-## Why UDSL?
-
-- **Universal**: Core primitives work for any domain (entity CRUD, HTTP, workflows)
-- **Serializable**: Pure JSON, can be stored in DB, sent over network
-- **Cross-language**: Evaluate in TypeScript, Python, Go, Rust, etc.
-- **Type-safe**: Full TypeScript support with the builder API
-- **Extensible**: Plugin system for custom effects
 
 ## License
 

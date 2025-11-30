@@ -1,7 +1,7 @@
 /**
- * UDSL - Universal DSL
+ * UDSL - Mutations as Data
  *
- * Language-agnostic, serializable expression language.
+ * Describe operations once, execute anywhere with plugins.
  */
 
 // =============================================================================

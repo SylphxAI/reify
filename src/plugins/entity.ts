@@ -1,11 +1,8 @@
 /**
- * UDSL Entity Plugin
+ * Entity Plugin
  *
- * Provides entity CRUD operations:
- * - entity.create
- * - entity.update
- * - entity.delete
- * - entity.upsert
+ * Returns operation descriptions for entity CRUD.
+ * Use createPrismaPlugin or createCachePlugin for actual execution.
  */
 
 import type { EvalContext, Plugin } from "../types";
