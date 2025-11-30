@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2 (2025-11-30)
+
+### 🐛 Bug Fixes
+
+- add prepack script to build before publish ([d14c9b0](https://github.com/SylphxAI/reify/commit/d14c9b08c97b6b4cefebcab1ec589bb989ade530))
+
 ## 0.1.1 (2025-11-30)
 
 ### 🐛 Bug Fixes

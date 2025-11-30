@@ -1,6 +1,6 @@
 {
 	"name": "@sylphx/reify-adapter-prisma",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"description": "Reify Prisma Adapter - Execute entity operations against Prisma",
 	"type": "module",
 	"main": "dist/index.js",

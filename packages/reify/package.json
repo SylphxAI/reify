@@ -1,6 +1,6 @@
 {
 	"name": "@sylphx/reify",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"description": "Reify - Reified mutations with pluggable interpreters. Describe once, execute anywhere.",
 	"type": "module",
 	"main": "dist/index.js",
