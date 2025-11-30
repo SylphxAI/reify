@@ -1,5 +1,5 @@
 /**
- * UDSL Core Builder
+ * Reify Core Builder
  *
  * Type-safe builder for creating operation pipelines.
  * Domain-agnostic - use with any plugin.
@@ -11,7 +11,7 @@ import type { Conditional, Operation, Pipeline, PipelineStep, RefNow, RefTemp } 
 // Symbol for identifying DSL values (used during build, not in output)
 // =============================================================================
 
-const DSL_MARKER: unique symbol = Symbol('udsl')
+const DSL_MARKER: unique symbol = Symbol('reify')
 
 interface DslValue {
 	[DSL_MARKER]: true

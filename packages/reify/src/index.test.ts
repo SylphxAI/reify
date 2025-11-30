@@ -14,7 +14,7 @@ import {
 	temp,
 } from './index'
 
-describe('UDSL Monorepo Integration', () => {
+describe('Reify Integration', () => {
 	beforeEach(() => {
 		resetTempIdCounter()
 		clearPlugins()

@@ -1,5 +1,5 @@
 /**
- * UDSL Core Executor
+ * Reify Core Executor
  *
  * Executes operation pipelines using registered plugins.
  */

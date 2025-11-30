@@ -1,5 +1,5 @@
 /**
- * UDSL Core Type Definitions
+ * Reify Core Type Definitions
  *
  * Domain-agnostic DSL primitives.
  * All types are plain objects - serialize however you want.
