@@ -22,6 +22,6 @@
 	"license": "MIT",
 	"dependencies": {
 		"@sylphx/reify-core": "workspace:*",
-		"@sylphx/standard-entity": "workspace:*"
+		"@sylphx/standard-entity": "github:SylphxAI/standard-entity"
 	}
 }
