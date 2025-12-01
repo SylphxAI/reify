@@ -1,6 +1,6 @@
 {
 	"name": "@sylphx/reify",
-	"version": "0.1.2",
+	"version": "0.1.3",
 	"description": "Transform operations into first-class data. Inspect, store, transmit, and execute anywhere.",
 	"type": "module",
 	"main": "dist/index.js",

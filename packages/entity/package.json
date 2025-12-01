@@ -1,6 +1,6 @@
 {
 	"name": "@sylphx/reify-entity",
-	"version": "0.1.2",
+	"version": "0.1.3",
 	"description": "Entity operations for Reify - type-safe create, update, delete, upsert as data",
 	"type": "module",
 	"main": "dist/index.js",

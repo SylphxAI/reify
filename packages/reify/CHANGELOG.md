@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.3 (2025-12-01)
+
+### 📦 Dependencies
+
+- Updated `@sylphx/reify-entity` to 0.1.3
+
 ## 0.1.2 (2025-11-30)
 
 ### 🐛 Bug Fixes

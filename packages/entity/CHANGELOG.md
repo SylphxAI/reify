@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.3 (2025-12-01)
+
+### ♻️ Refactoring
+
+- **entity:** remove unused _EntityName type ([c1edd72](https://github.com/SylphxAI/reify/commit/c1edd7267bc442f7af5b7f64f156866fcb38510a))
+
+### 📚 Documentation
+
+- rebrand Reify with new philosophy and positioning ([b951c0b](https://github.com/SylphxAI/reify/commit/b951c0b2955a893166bc2c98b2bec54334627b52))
+
 ## 0.1.2 (2025-11-30)
 
 ### 🐛 Bug Fixes
