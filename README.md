@@ -272,7 +272,7 @@ Execute operations on local cache immediately while syncing with server.
 
 ## Powered by Sylphx
 
-Built with [@sylphx/tsconfig](https://github.com/SylphxAI/tsconfig), [@sylphx/biome-config](https://github.com/SylphxAI/biome-config), [@sylphx/doctor](https://github.com/SylphxAI/doctor), and [@sylphx/bump](https://github.com/SylphxAI/bump).
+Built with [@sylphx/tsconfig](https://github.com/SylphxAI/tsconfig), [@sylphx/biome-config](https://github.com/SylphxAI/biome-config), and [@sylphx/bump](https://github.com/SylphxAI/bump).
 
 https://github.com/SylphxAI
 
