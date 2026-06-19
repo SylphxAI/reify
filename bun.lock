@@ -8,7 +8,6 @@
         "@biomejs/biome": "^2.3.8",
         "@sylphx/biome-config": "^0.4.0",
         "@sylphx/bump": "^1.4.11",
-        "@sylphx/doctor": "^1.26.0",
         "@sylphx/tsconfig": "^0.3.0",
         "@types/bun": "^1.2.17",
         "lefthook": "^2.0.4",
@@ -18,25 +17,25 @@
     },
     "packages/adapter-cache": {
       "name": "@sylphx/reify-adapter-cache",
-      "version": "0.1.0",
+      "version": "0.1.2",
       "dependencies": {
         "@sylphx/reify-core": "workspace:*",
       },
     },
     "packages/adapter-prisma": {
       "name": "@sylphx/reify-adapter-prisma",
-      "version": "0.1.0",
+      "version": "0.1.2",
       "dependencies": {
         "@sylphx/reify-core": "workspace:*",
       },
     },
     "packages/core": {
       "name": "@sylphx/reify-core",
-      "version": "0.1.0",
+      "version": "0.1.2",
     },
     "packages/entity": {
       "name": "@sylphx/reify-entity",
-      "version": "0.1.0",
+      "version": "0.1.3",
       "dependencies": {
         "@sylphx/reify-core": "workspace:*",
         "@sylphx/standard-entity": "^0.1.0",
@@ -44,7 +43,7 @@
     },
     "packages/reify": {
       "name": "@sylphx/reify",
-      "version": "0.1.0",
+      "version": "0.1.3",
       "dependencies": {
         "@sylphx/reify-adapter-cache": "workspace:*",
         "@sylphx/reify-adapter-prisma": "workspace:*",
@@ -76,8 +75,6 @@
 
     "@sylphx/bump": ["@sylphx/bump@1.4.11", "", { "dependencies": { "citty": "^0.1.6", "consola": "^3.4.2", "defu": "^6.1.4", "picocolors": "^1.1.1", "semver": "^7.6.3", "zx": "^8.8.5" }, "bin": { "bump": "dist/cli.js" } }, "sha512-OqvwaS2/plmY9Y2I1qIakFP5/5mfR7sCkzWUvIUHFWSqybRXeCv9MmxHuZFG5l+r2zZmvkXY2ZI+GCYy6bY3/g=="],
 
-    "@sylphx/doctor": ["@sylphx/doctor@1.26.0", "", { "dependencies": { "citty": "^0.1.6", "consola": "^3.4.2", "defu": "^6.1.4", "jiti": "^2.4.2", "picocolors": "^1.1.1" }, "bin": { "doctor": "dist/cli.js" } }, "sha512-DtdoKFbOi3TVjXygFiUkN3SfhwPP83wZhI3rpwJfIBkcMApjJO3VeM+oo16fbdF1e5Wc+oN2TQdyHHxYoxIiNA=="],
-
     "@sylphx/reify": ["@sylphx/reify@workspace:packages/reify"],
 
     "@sylphx/reify-adapter-cache": ["@sylphx/reify-adapter-cache@workspace:packages/adapter-cache"],
@@ -103,8 +100,6 @@
     "consola": ["consola@3.4.2", "", {}, "sha512-5IKcdX0nnYavi6G7TtOhwkYzyjfJlatbjMjuLSfE2kYT5pMDOilZ4OvMhi637CcDICTmz3wARPoyhqyX1Y+XvA=="],
 
     "defu": ["defu@6.1.4", "", {}, "sha512-mEQCMmwJu317oSz8CwdIOdwf3xMif1ttiM8LTufzc3g6kR+9Pe236twL8j3IYT1F7GfRgGcW6MWxzZjLIkuHIg=="],
-
-    "jiti": ["jiti@2.6.1", "", { "bin": { "jiti": "lib/jiti-cli.mjs" } }, "sha512-ekilCSN1jwRvIbgeg/57YFh8qQDNbwDb9xT/qu2DAHbFFZUicIl4ygVaAvzveMhMVr3LnpSKTNnwt8PoOfmKhQ=="],
 
     "lefthook": ["lefthook@2.0.4", "", { "optionalDependencies": { "lefthook-darwin-arm64": "2.0.4", "lefthook-darwin-x64": "2.0.4", "lefthook-freebsd-arm64": "2.0.4", "lefthook-freebsd-x64": "2.0.4", "lefthook-linux-arm64": "2.0.4", "lefthook-linux-x64": "2.0.4", "lefthook-openbsd-arm64": "2.0.4", "lefthook-openbsd-x64": "2.0.4", "lefthook-windows-arm64": "2.0.4", "lefthook-windows-x64": "2.0.4" }, "bin": { "lefthook": "bin/index.js" } }, "sha512-GNCU2vQWM/UWjiEF23601aILi1aMbPke6viortH7wIO/oVGOCW0H6FdLez4XZDyqnHL9XkTnd0BBVrBbYVMLpA=="],
 
