@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.4 (2026-06-22)
+
+### 📦 Dependencies
+
+- Updated `@sylphx/reify-adapter-prisma` to 0.1.2
+- Updated `@sylphx/reify-core` to 0.1.2
+- Updated `@sylphx/reify-adapter-cache` to 0.1.2
+
 ## 0.1.3 (2025-12-01)
 
 ### 📦 Dependencies
