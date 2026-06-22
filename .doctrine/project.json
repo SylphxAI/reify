@@ -96,11 +96,7 @@
 	},
 	"delivery": {
 		"ciModel": "adr29-admission",
-		"requiredContexts": [
-			"risk-classification/pass",
-			"ci",
-			"trunk-admission/pass"
-		],
+		"requiredContexts": ["risk-classification/pass", "ci", "trunk-admission/pass"],
 		"deployPath": "Pull requests and merge groups run .github/workflows/ci.yml with ADR-29 admission contexts; main pushes run .github/workflows/release.yml to create or publish release changes through @sylphx/bump.",
 		"productionProof": "ADR-29 admission pass, CI pass, release PR or publish workflow completion, and npm registry readback for changed packages.",
 		"recoveryClass": "forward-fix-only",
@@ -110,11 +106,7 @@
 			"releaseIntent": "Reify publishes public @sylphx package artifacts through the repo-local release workflow.",
 			"versionPr": "@sylphx/bump creates or updates release PRs on normal main commits and publishes on release commits.",
 			"publisher": ".github/workflows/release.yml using github-actions[bot], GITHUB_TOKEN, and NPM_TOKEN.",
-			"requiredContexts": [
-				"risk-classification/pass",
-				"ci",
-				"trunk-admission/pass"
-			],
+			"requiredContexts": ["risk-classification/pass", "ci", "trunk-admission/pass"],
 			"publishProof": "npm registry readback for each changed @sylphx/reify package."
 		}
 	},
