@@ -1,0 +1,132 @@
+{
+	"schemaVersion": 1,
+	"project": {
+		"repo": "SylphxAI/reify",
+		"name": "Reify",
+		"lifecycle": "production",
+		"layer": "foundation",
+		"summary": "Reify is a TypeScript package monorepo for representing operations as first-class serializable data and executing them through pluggable adapters.",
+		"goals": [
+			"Make operations inspectable, serializable, storable, transmittable, transformable, replayable, and executable across environments.",
+			"Keep core operation data independent from adapter-specific execution details.",
+			"Own package boundaries, public exports, adapter contracts, examples, and release proof for the Reify package family."
+		],
+		"nonGoals": [
+			"Own downstream applications' domain models, database schemas, auth policies, workflows, deployment, or commercial logic.",
+			"Hide adapter-specific behavior inside the core operation model.",
+			"Publish package changes without CI/admission proof, release workflow evidence, and npm registry readback."
+		]
+	},
+	"boundaries": {
+		"owns": [
+			{
+				"name": "operation-as-data-core",
+				"description": "Serializable operation model, builder APIs, pipeline representation, execution contract, and core package exports."
+			},
+			{
+				"name": "reify-adapters",
+				"description": "Adapter packages that interpret operation data for specific execution environments."
+			},
+			{
+				"name": "reify-package-release",
+				"description": "CI/admission and npm release evidence for the Reify package family."
+			}
+		],
+		"doesNotOwn": [
+			"Downstream product applications' domain models, persistence schemas, auth policies, workflow semantics, deployment, or commercial logic.",
+			"Enterprise doctrine or organization-wide rulesets.",
+			"Runtime side effects outside adapter contracts and explicit execution contexts."
+		],
+		"publicSurfaces": [
+			{
+				"type": "package-export",
+				"name": "Reify npm package family",
+				"location": "packages/*/package.json"
+			},
+			{
+				"type": "documentation",
+				"name": "Reify README and package documentation",
+				"location": "README.md, packages/*/README.md"
+			},
+			{
+				"type": "workflow",
+				"name": "CI/admission and release workflows",
+				"location": ".github/workflows/ci.yml, .github/workflows/release.yml"
+			}
+		],
+		"allowedDependencies": [
+			{
+				"repo": "SylphxAI/doctrine",
+				"surface": "enterprise engineering doctrine",
+				"direction": "downward"
+			},
+			{
+				"repo": "SylphxAI/.github",
+				"surface": "shared organization workflow/action catalog",
+				"direction": "downward"
+			}
+		],
+		"forbiddenCouplings": [
+			"Do not add product-specific workflow, persistence, tenancy, or billing behavior to Reify core.",
+			"Do not let adapter packages redefine the portable operation data contract.",
+			"Do not publish package changes without CI/admission proof and npm registry readback."
+		]
+	},
+	"documentation": {
+		"adr": {
+			"path": "docs/adr/",
+			"status": "planned"
+		},
+		"specs": {
+			"path": "README.md, packages/*/README.md",
+			"status": "present"
+		},
+		"catalog": {
+			"path": "PROJECT.md",
+			"status": "present"
+		},
+		"runbooks": {
+			"path": "AGENTS.md",
+			"status": "present"
+		},
+		"generatedReferences": {
+			"path": "packages/*/dist/",
+			"status": "generated"
+		}
+	},
+	"delivery": {
+		"ciModel": "adr29-admission",
+		"requiredContexts": [
+			"risk-classification/pass",
+			"ci",
+			"trunk-admission/pass"
+		],
+		"deployPath": "Pull requests and merge groups run .github/workflows/ci.yml with ADR-29 admission contexts; main pushes run .github/workflows/release.yml to create or publish release changes through @sylphx/bump.",
+		"productionProof": "ADR-29 admission pass, CI pass, release PR or publish workflow completion, and npm registry readback for changed packages.",
+		"recoveryClass": "forward-fix-only",
+		"packageRelease": {
+			"publishesPackages": true,
+			"ecosystems": ["npm"],
+			"releaseIntent": "Reify publishes public @sylphx package artifacts through the repo-local release workflow.",
+			"versionPr": "@sylphx/bump creates or updates release PRs on normal main commits and publishes on release commits.",
+			"publisher": ".github/workflows/release.yml using github-actions[bot], GITHUB_TOKEN, and NPM_TOKEN.",
+			"requiredContexts": [
+				"risk-classification/pass",
+				"ci",
+				"trunk-admission/pass"
+			],
+			"publishProof": "npm registry readback for each changed @sylphx/reify package."
+		}
+	},
+	"adoption": {
+		"status": "baseline",
+		"gaps": [
+			{
+				"id": "postsubmit-proof-enforcement",
+				"description": "ADR-29 postsubmit proof exists for main pushes; keep release publication gated by explicit release workflow evidence and registry readback.",
+				"owner": "SylphxAI/reify",
+				"target": "ongoing"
+			}
+		]
+	}
+}
