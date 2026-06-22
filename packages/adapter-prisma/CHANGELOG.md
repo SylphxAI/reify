@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2 (2026-06-22)
+
+### 📚 Documentation
+
+- rebrand Reify with new philosophy and positioning ([b951c0b](https://github.com/SylphxAI/reify/commit/b951c0b2955a893166bc2c98b2bec54334627b52))
+
 ## 0.1.2 (2025-11-30)
 
 ### 🐛 Bug Fixes
