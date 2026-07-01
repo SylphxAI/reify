@@ -1,6 +1,6 @@
 {
 	"name": "@sylphx/reify-adapter-cache",
-	"version": "0.1.2",
+	"version": "0.1.3",
 	"description": "In-memory cache executor for Reify operations",
 	"type": "module",
 	"main": "dist/index.js",
