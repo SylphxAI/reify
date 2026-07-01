@@ -1,10 +1,18 @@
 # Changelog
 
+## 0.1.4
+
+### Patch Changes
+
+- 4e39eab: Retire the legacy Bump release workflow and move package publication to the shared Changesets release workflow.
+- Updated dependencies [4e39eab]
+  - @sylphx/reify-core@0.1.3
+
 ## 0.1.3 (2025-12-01)
 
 ### ♻️ Refactoring
 
-- **entity:** remove unused _EntityName type ([c1edd72](https://github.com/SylphxAI/reify/commit/c1edd7267bc442f7af5b7f64f156866fcb38510a))
+- **entity:** remove unused \_EntityName type ([c1edd72](https://github.com/SylphxAI/reify/commit/c1edd7267bc442f7af5b7f64f156866fcb38510a))
 
 ### 📚 Documentation
 

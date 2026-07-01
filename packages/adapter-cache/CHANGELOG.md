@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.3
+
+### Patch Changes
+
+- 4e39eab: Retire the legacy Bump release workflow and move package publication to the shared Changesets release workflow.
+- Updated dependencies [4e39eab]
+  - @sylphx/reify-core@0.1.3
+
 ## 0.1.2 (2025-11-30)
 
 ### 🐛 Bug Fixes

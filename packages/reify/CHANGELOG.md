@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.4
+
+### Patch Changes
+
+- 4e39eab: Retire the legacy Bump release workflow and move package publication to the shared Changesets release workflow.
+- Updated dependencies [4e39eab]
+  - @sylphx/reify-adapter-cache@0.1.3
+  - @sylphx/reify-adapter-prisma@0.1.3
+  - @sylphx/reify-core@0.1.3
+  - @sylphx/reify-entity@0.1.4
+
 ## 0.1.3 (2025-12-01)
 
 ### 📦 Dependencies

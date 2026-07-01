@@ -1,6 +1,6 @@
 {
 	"name": "@sylphx/reify-core",
-	"version": "0.1.2",
+	"version": "0.1.3",
 	"description": "Core primitives for reified operations - transform operations into inspectable, serializable data",
 	"type": "module",
 	"main": "dist/index.js",
