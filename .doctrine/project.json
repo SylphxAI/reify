@@ -97,15 +97,15 @@
 	"delivery": {
 		"ciModel": "adr29-admission",
 		"requiredContexts": ["risk-classification/pass", "ci", "trunk-admission/pass"],
-		"deployPath": "Pull requests and merge groups run .github/workflows/ci.yml with ADR-29 admission contexts; main pushes run .github/workflows/release.yml to create or publish release changes through @sylphx/bump.",
+		"deployPath": "Pull requests and merge groups run .github/workflows/ci.yml with ADR-29 admission contexts; main pushes run .github/workflows/release.yml to create or publish release changes through the shared Changesets release workflow.",
 		"productionProof": "ADR-29 admission pass, CI pass, release PR or publish workflow completion, and npm registry readback for changed packages.",
 		"recoveryClass": "forward-fix-only",
 		"packageRelease": {
 			"publishesPackages": true,
 			"ecosystems": ["npm"],
 			"releaseIntent": "Reify publishes public @sylphx package artifacts through the repo-local release workflow.",
-			"versionPr": "@sylphx/bump creates or updates release PRs on normal main commits and publishes on release commits.",
-			"publisher": ".github/workflows/release.yml using github-actions[bot], GITHUB_TOKEN, and NPM_TOKEN.",
+			"versionPr": "Changesets creates or updates release PRs on normal main commits and the shared release workflow publishes after version PR merge.",
+			"publisher": ".github/workflows/release.yml using the shared SylphxAI/.github Changesets release workflow with GitHub token permissions and npm trusted publishing or NPM_TOKEN fallback.",
 			"requiredContexts": ["risk-classification/pass", "ci", "trunk-admission/pass"],
 			"publishProof": "npm registry readback for each changed @sylphx/reify package."
 		}
