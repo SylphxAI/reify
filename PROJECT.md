@@ -38,5 +38,5 @@ runtime policy.
 
 Pull requests and merge groups run `.github/workflows/ci.yml`, including ADR-29
 classification and fan-in contexts. Main pushes run `.github/workflows/release.yml`
-to create or publish release changes through the `@sylphx/bump` workflow.
+to create or publish release changes through the shared Changesets release workflow.
 Published package changes are forward-fix only and require npm registry readback.
