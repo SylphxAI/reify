@@ -1,0 +1,95 @@
+{
+	"$schema": "https://raw.githubusercontent.com/SylphxAI/groundatlas/main/schemas/project.manifest.schema.json",
+	"schemaVersion": 1,
+	"project": {
+		"id": "reify",
+		"name": "Reify",
+		"summary": "TypeScript package monorepo for representing operations as first-class serializable data and executing them through pluggable adapters.",
+		"lifecycle": "production",
+		"visibility": "open-source",
+		"repository": "https://github.com/SylphxAI/reify",
+		"homepage": "https://github.com/SylphxAI/reify",
+		"tags": ["typescript", "operation-as-data", "adapters", "serializable", "foundation-library"]
+	},
+	"truth": {
+		"humanProjectFile": "PROJECT.md",
+		"agentAdapter": "AGENTS.md",
+		"specs": ["README.md", "CONCEPTS.md", "packages/*/README.md", "docs/specs/"],
+		"adrs": ["docs/adr/"],
+		"source": [
+			"packages/",
+			"package.json",
+			"turbo.json",
+			"tsconfig.json",
+			"tsconfig.base.json",
+			".github/workflows/ci.yml",
+			".github/workflows/release.yml"
+		],
+		"tests": ["packages/", "test/project-control.node-test.mjs", ".github/workflows/ci.yml"],
+		"runbooks": ["README.md", "PROJECT.md", "AGENTS.md", "SECURITY.md"]
+	},
+	"surfaces": [
+		{
+			"type": "package",
+			"name": "Reify package family",
+			"path": "packages/*/package.json",
+			"description": "Public @sylphx/reify package family surfaces, adapters, and exports."
+		},
+		{
+			"type": "docs",
+			"name": "Repository README",
+			"path": "README.md",
+			"description": "Public operation-as-data overview, examples, and package-family entry point."
+		},
+		{
+			"type": "docs",
+			"name": "Concepts",
+			"path": "CONCEPTS.md",
+			"description": "Conceptual model for reified operations and adapter execution."
+		},
+		{
+			"type": "workflow",
+			"name": "CI/admission",
+			"path": ".github/workflows/ci.yml",
+			"description": "ADR-29 admission, validation, project-control, and GroundAtlas package dogfood."
+		},
+		{
+			"type": "workflow",
+			"name": "Release",
+			"path": ".github/workflows/release.yml",
+			"description": "Main-branch release workflow calling the shared Sylphx release workflow."
+		},
+		{
+			"type": "docs",
+			"name": "Doctrine adapter manifest",
+			"path": ".doctrine/project.json",
+			"description": "Sylphx Doctrine adapter and org-local governance catalog; not the vendor-neutral GroundAtlas default."
+		}
+	],
+	"commands": [
+		{
+			"name": "install",
+			"command": "bun install --frozen-lockfile",
+			"purpose": "Install workspace dependencies without lockfile drift."
+		},
+		{
+			"name": "validate",
+			"command": "bun run validate",
+			"purpose": "Run lint, typecheck, tests, and build through the current CI baseline."
+		},
+		{
+			"name": "test:project-control",
+			"command": "node --test test/project-control.node-test.mjs",
+			"purpose": "Verify neutral manifest, Doctrine adapter, released GroundAtlas workflow, and release caller boundary."
+		},
+		{
+			"name": "groundatlas:fleet",
+			"command": "npm exec --yes --package groundatlas@0.1.2 -- ga fleet . --out .groundatlas-pilot --require-atlas --strict --json",
+			"purpose": "Prove the vendor-neutral manifest is selected and generated GroundAtlas files are navigation-only."
+		}
+	],
+	"adoption": {
+		"status": "adopted",
+		"notes": "Vendor-neutral GroundAtlas manifest for package/action dogfooding. .doctrine/project.json remains the Sylphx Doctrine adapter and local governance catalog. Generated .groundatlas* reports are evidence/navigation only, not source of truth."
+	}
+}

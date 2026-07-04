@@ -9,7 +9,8 @@ release path for the `@sylphx/reify` package family.
 - Lifecycle: `production`
 - Layer: `foundation`
 - Doctrine source of truth: [SylphxAI/doctrine](https://github.com/SylphxAI/doctrine)
-- Machine manifest: `.doctrine/project.json`
+- Vendor-neutral project manifest: [`project.manifest.json`](./project.manifest.json)
+- Sylphx Doctrine adapter: [`.doctrine/project.json`](./.doctrine/project.json)
 
 ## Goals
 
@@ -36,7 +37,4 @@ runtime policy.
 
 ## Delivery
 
-Pull requests and merge groups run `.github/workflows/ci.yml`, including ADR-29
-classification and fan-in contexts. Main pushes run `.github/workflows/release.yml`
-to create or publish release changes through the shared Changesets release workflow.
-Published package changes are forward-fix only and require npm registry readback.
+Pull requests and merge groups run `.github/workflows/ci.yml`, including ADR-29 classification/fan-in contexts, `bun run validate`, project-control boundary tests, and GroundAtlas package dogfooding. Main pushes run `.github/workflows/release.yml` to create or publish release changes through the shared Changesets release workflow. Published package changes are forward-fix only and require npm registry readback. Generated `.groundatlas*` reports are evidence/navigation only, not source of truth.
