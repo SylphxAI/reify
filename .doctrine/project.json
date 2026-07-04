@@ -52,6 +52,31 @@
 				"type": "workflow",
 				"name": "CI/admission and release workflows",
 				"location": ".github/workflows/ci.yml, .github/workflows/release.yml"
+			},
+			{
+				"type": "manifest",
+				"name": "Vendor-neutral project manifest",
+				"location": "project.manifest.json"
+			},
+			{
+				"type": "test",
+				"name": "Project-control boundary test",
+				"location": "test/project-control.node-test.mjs"
+			},
+			{
+				"type": "documentation",
+				"name": "Project-control ADRs",
+				"location": "docs/adr/"
+			},
+			{
+				"type": "documentation",
+				"name": "Project-control specs",
+				"location": "docs/specs/"
+			},
+			{
+				"type": "documentation",
+				"name": "Security policy",
+				"location": "SECURITY.md"
 			}
 		],
 		"allowedDependencies": [
@@ -64,6 +89,11 @@
 				"repo": "SylphxAI/.github",
 				"surface": "shared organization workflow/action catalog",
 				"direction": "downward"
+			},
+			{
+				"repo": "SylphxAI/groundatlas",
+				"surface": "Released GroundAtlas package/action for vendor-neutral project manifest validation and fleet dogfooding.",
+				"direction": "peer-public"
 			}
 		],
 		"forbiddenCouplings": [
@@ -75,18 +105,18 @@
 	"documentation": {
 		"adr": {
 			"path": "docs/adr/",
-			"status": "planned"
+			"status": "present"
 		},
 		"specs": {
-			"path": "README.md, packages/*/README.md",
+			"path": "README.md, packages/*/README.md, and docs/specs/",
 			"status": "present"
 		},
 		"catalog": {
-			"path": "PROJECT.md",
+			"path": "PROJECT.md and project.manifest.json",
 			"status": "present"
 		},
 		"runbooks": {
-			"path": "AGENTS.md",
+			"path": "AGENTS.md and SECURITY.md",
 			"status": "present"
 		},
 		"generatedReferences": {
@@ -95,10 +125,10 @@
 		}
 	},
 	"delivery": {
-		"ciModel": "adr29-admission",
+		"ciModel": "adr29-admission-with-groundatlas",
 		"requiredContexts": ["risk-classification/pass", "ci", "trunk-admission/pass"],
-		"deployPath": "Pull requests and merge groups run .github/workflows/ci.yml with ADR-29 admission contexts; main pushes run .github/workflows/release.yml to create or publish release changes through the shared Changesets release workflow.",
-		"productionProof": "ADR-29 admission pass, CI pass, release PR or publish workflow completion, and npm registry readback for changed packages.",
+		"deployPath": "Pull requests and merge groups run .github/workflows/ci.yml with ADR-29 admission contexts, bun run validate, project-control boundary tests, and GroundAtlas package dogfood; main pushes run .github/workflows/release.yml to create or publish release changes through the shared Changesets release workflow.",
+		"productionProof": "ADR-29 admission pass, bun run validate, project-control boundary tests, GroundAtlas package dogfood, release PR or publish workflow completion, and npm registry readback for changed packages.",
 		"recoveryClass": "forward-fix-only",
 		"packageRelease": {
 			"publishesPackages": true,
@@ -107,11 +137,11 @@
 			"versionPr": "Changesets creates or updates release PRs on normal main commits and the shared release workflow publishes after version PR merge.",
 			"publisher": ".github/workflows/release.yml using the shared SylphxAI/.github Changesets release workflow with GitHub token permissions and npm trusted publishing or NPM_TOKEN fallback.",
 			"requiredContexts": ["risk-classification/pass", "ci", "trunk-admission/pass"],
-			"publishProof": "npm registry readback for each changed @sylphx/reify package."
+			"publishProof": "npm registry readback for each changed @sylphx/reify package plus CI/admission and Release workflow evidence."
 		}
 	},
 	"adoption": {
-		"status": "baseline",
+		"status": "adopted",
 		"gaps": [
 			{
 				"id": "postsubmit-proof-enforcement",

@@ -4,7 +4,7 @@
 
 This file is the repo-local operating policy for agents working in
 `SylphxAI/reify`. Organization-wide engineering doctrine is owned by
-`SylphxAI/doctrine`; `PROJECT.md` and `.doctrine/project.json` own this
+`SylphxAI/doctrine`; `PROJECT.md`, `project.manifest.json`, and `.doctrine/project.json` own this
 repository's local identity, lifecycle, boundary, and delivery facts.
 
 Reify is a TypeScript package monorepo for representing operations as first-class
@@ -12,7 +12,7 @@ data and executing them through pluggable adapters.
 
 ## Read First
 
-1. `PROJECT.md` and `.doctrine/project.json` for project goals, boundaries,
+1. `PROJECT.md`, `project.manifest.json`, and `.doctrine/project.json` for project goals, boundaries,
    delivery proof, package-release facts, and adoption gaps.
 2. `README.md` for the operation-as-data model and public examples.
 3. `packages/*/README.md` and package-level `package.json` files before changing
@@ -41,3 +41,5 @@ Use the narrowest meaningful validation first, then broaden as needed:
 
 Docs-only boundary changes may be validated by diff review, referenced-file
 checks, and the central project manifest audit.
+
+Generated `.groundatlas*` reports are evidence/navigation only. Do not treat them as source of truth.
