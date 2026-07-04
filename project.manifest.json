@@ -84,8 +84,8 @@
 		},
 		{
 			"name": "groundatlas:fleet",
-			"command": "npm exec --yes --package groundatlas@0.1.2 -- ga fleet . --out .groundatlas-pilot --require-atlas --strict --json",
-			"purpose": "Prove the vendor-neutral manifest is selected and generated GroundAtlas files are navigation-only."
+			"command": "npm exec --yes --package groundatlas@0.1.3 -- ga update --out .groundatlas-pilot && npm exec --yes --package groundatlas@0.1.3 -- ga manifest --out .groundatlas-pilot --json && npm exec --yes --package groundatlas@0.1.3 -- ga audit --out .groundatlas-pilot && npm exec --yes --package groundatlas@0.1.3 -- ga fleet . --out .groundatlas-pilot --require-atlas --strict --json && npm exec --yes --package groundatlas@0.1.3 -- ga fleet . --out .groundatlas-pilot --require-atlas --strict",
+			"purpose": "Prove the vendor-neutral manifest is selected, .doctrine/project.json remains an adapter, and generated JSON plus Markdown GroundAtlas reports are navigation-only evidence."
 		}
 	],
 	"adoption": {

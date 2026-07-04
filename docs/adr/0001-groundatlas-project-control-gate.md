@@ -15,8 +15,8 @@ The project-control surface must not make `.doctrine/project.json` a public defa
 Add:
 
 - a vendor-neutral `project.manifest.json`;
-- CI steps that run `bun run validate`, project-control tests, and `SylphxAI/groundatlas@v0.1.2` with `groundatlas@0.1.2`;
-- assertions that GroundAtlas selects `project.manifest.json`, reports `.doctrine/project.json` only as an adapter, and has zero strict fleet warnings/blockers;
+- CI steps that run `bun run validate`, project-control tests, and `SylphxAI/groundatlas@v0.1.3` with `groundatlas@0.1.3`;
+- assertions that GroundAtlas selects `project.manifest.json`, reports `.doctrine/project.json` only as an adapter, has zero strict fleet warnings/blockers, and preserves the Markdown scorecard evidence;
 - a small Node project-control boundary test;
 - docs/spec/ADR/PROJECT/AGENTS updates that clarify GroundAtlas as evidence/navigation, not SSOT.
 
@@ -25,4 +25,4 @@ Add:
 - Pull requests and merge groups now get existing ADR-29 admission plus GroundAtlas package/action dogfooding.
 - `.doctrine/project.json` remains the Sylphx Doctrine adapter and local governance catalog.
 - Release proof remains a successful Release workflow plus npm registry readback for changed packages.
-- Generated `.groundatlas*` reports remain evidence/navigation only.
+- Generated `.groundatlas*`, fleet JSON, and fleet Markdown reports remain evidence/navigation only.

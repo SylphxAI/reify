@@ -37,4 +37,4 @@ runtime policy.
 
 ## Delivery
 
-Pull requests and merge groups run `.github/workflows/ci.yml`, including ADR-29 classification/fan-in contexts, `bun run validate`, project-control boundary tests, and GroundAtlas package dogfooding. Main pushes run `.github/workflows/release.yml` to create or publish release changes through the shared Changesets release workflow. Published package changes are forward-fix only and require npm registry readback. Generated `.groundatlas*` reports are evidence/navigation only, not source of truth.
+Pull requests and merge groups run `.github/workflows/ci.yml`, including ADR-29 classification/fan-in contexts, `bun run validate`, project-control boundary tests, and GroundAtlas package dogfooding. Main pushes run `.github/workflows/release.yml` to create or publish release changes through the shared Changesets release workflow. Published package changes are forward-fix only and require npm registry readback. Generated `.groundatlas*`, fleet JSON, and fleet Markdown reports are evidence/navigation only, not source of truth.

@@ -23,9 +23,10 @@ It does not own downstream applications' domain models, database schemas, auth p
 1. install dependencies with `bun install --frozen-lockfile`;
 2. run `bun run validate`;
 3. run `node --test test/project-control.node-test.mjs`;
-4. run `SylphxAI/groundatlas@v0.1.2` with `package-spec: groundatlas@0.1.2`, `require-atlas: "true"`, and `strict: "true"`;
+4. run `SylphxAI/groundatlas@v0.1.3` with `package-spec: groundatlas@0.1.3`, `require-atlas: "true"`, and `strict: "true"`;
 5. assert that GroundAtlas selects `project.manifest.json` and treats `.doctrine/project.json` only as an adapter;
-6. upload the manifest and fleet reports as `groundatlas-package-dogfood`.
+6. assert that the human-readable Markdown scorecard reports one adopted project with zero warnings and zero blockers;
+7. upload the manifest JSON, fleet JSON, and fleet Markdown reports as `groundatlas-package-dogfood`.
 
 ## Acceptance
 
@@ -34,4 +35,5 @@ It does not own downstream applications' domain models, database schemas, auth p
 - `ga audit` passes after `ga update`.
 - `ga manifest --json` selects `project.manifest.json`.
 - `ga fleet --require-atlas --strict --json` reports one adopted project with zero warnings and zero blockers.
+- `ga fleet --require-atlas --strict` renders a Markdown scorecard with the same adopted summary.
 - The release workflow keeps `id-token: write` and delegates to `SylphxAI/.github/.github/workflows/release.yml@main`.
